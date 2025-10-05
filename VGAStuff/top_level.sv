@@ -14,16 +14,22 @@ module top_level (
 );
 
     // ============================================================
-    // Pixel clock
-    // ============================================================
-    wire pix_clk;
+	 // Pixel clock
+	 // ============================================================
+	 wire pix_clk;
 
-    pll25 pll_inst (
-        .inclk0 (CLOCK_50),
-        .c0     (pix_clk)
-    );
+	`ifdef SIMULATION
+		 // Bypass PLL during simulation — just use 50 MHz directly
+		 assign pix_clk = CLOCK_50;
+	`else
+		 pll25 pll_inst (
+			  .inclk0 (CLOCK_50),
+			  .c0     (pix_clk)
+		 );
+	`endif
 
-    assign VGA_CLK = pix_clk;
+	 assign VGA_CLK = pix_clk; 
+
 
     // ============================================================
     // VGA sync generator
@@ -60,22 +66,49 @@ module top_level (
         .valid     (valid)
     );
 
-    // ============================================================
-    // Filter stage (brighten with KEY[1])
-    // ============================================================
-    wire [7:0] filtered_pixel;
+   // ============================================================
+	// Brighten Filter Stage (using pixel_wise_filter)
+	// ============================================================
+	wire [7:0] bright_pix_out;
+	wire       bright_valid_out;
+	wire       bright_module_ready;
+	wire [7:0] bright_value;
+	wire [23:0] bright_mult;
+	localparam int BPM_CONST = 150; //Placeholder value until integration
 
-    filter_stage filter (
-        .pixel_in    (pixel),
-        .brighten_en (~KEY[1]), 
-        .pixel_out   (filtered_pixel)
-    );
+	pixel_wise_filter brighten_stage (
+		 .clk            (pix_clk),
+		 .reset          (~KEY[0]),
 
+		 .pix_in         (pixel),
+		 .valid_in       (valid),
+		 .module_ready   (bright_module_ready), 
+
+		 .filter_enable  (~KEY[1]),             // KEY[1] enables brighten filter
+		 .filter_mode    (1'b1),                // 1 = additive mode
+		 .BPM_estimate   (BPM_CONST),          
+
+		 .pix_out        (bright_pix_out),
+		 .output_ready   (1'b1),                // always ready (no downstream backpressure yet)
+		 .valid_out      (bright_valid_out),
+		 .brightness     (bright_value),
+		 .brightness_mult(bright_mult)
+	);
+
+	// For now, module is always "ready" since downstream is always accepting pixels.
+	assign bright_module_ready = 1'b1;
+
+	 
+	 //==============================================================
+	 // Pixel Wise Filter Stage Two ()
+	 //==============================================================
+	 
+	 
     // ============================================================
     // Pixel → VGA RGB
     // ============================================================
-    assign VGA_R = (visible && valid) ? filtered_pixel : 8'd0;
-    assign VGA_G = (visible && valid) ? filtered_pixel : 8'd0;
-    assign VGA_B = (visible && valid) ? filtered_pixel : 8'd0;
+    assign VGA_R = (visible && valid) ? bright_pix_out : 8'd0;
+    assign VGA_G = (visible && valid) ? bright_pix_out : 8'd0;
+    assign VGA_B = (visible && valid) ? bright_pix_out : 8'd0;
 
 endmodule
