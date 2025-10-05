@@ -66,49 +66,52 @@ module top_level (
         .valid     (valid)
     );
 
-   // ============================================================
-	// Brighten Filter Stage (using pixel_wise_filter)
-	// ============================================================
-	wire [7:0] bright_pix_out;
-	wire       bright_valid_out;
-	wire       bright_module_ready;
-	wire [7:0] bright_value;
-	wire [23:0] bright_mult;
-	localparam int BPM_CONST = 150; //Placeholder value until integration
+    // ============================================================
+    // Filter pipeline with proper VALID / READY handshaking
+    // ============================================================
 
-	pixel_wise_filter brighten_stage (
-		 .clk            (pix_clk),
-		 .reset          (~KEY[0]),
+    // Handshake wires
+    wire bright_module_ready;   // declare BEFORE using in thresh_stage
 
-		 .pix_in         (pixel),
-		 .valid_in       (valid),
-		 .module_ready   (bright_module_ready), 
+    // ---------- Stage 1: Threshold ----------
+    threshold_filter thresh_stage (
+        .clk            (pix_clk),
+        .reset          (~KEY[0]),
+        .pix_in         (pixel),
+        .valid_in       (valid),
+        .module_ready   (),  // not used by upstream
+        .filter_enable  (~KEY[1]),
+        .BPM_estimate   (8'd150),
+        .pix_out        (thresh_pix_out),
+        .output_ready   (bright_module_ready),   // handshake to next
+        .valid_out      (thresh_valid_out),
+        .brightness     (),
+        .brightness_mult()
+    );
 
-		 .filter_enable  (~KEY[1]),             // KEY[1] enables brighten filter
-		 .filter_mode    (1'b1),                // 1 = additive mode
-		 .BPM_estimate   (BPM_CONST),          
+    // ---------- Stage 2: Brightness ----------
+    brightness_filter bright_stage (
+        .clk            (pix_clk),
+        .reset          (~KEY[0]),
+        .pix_in         (thresh_pix_out),
+        .valid_in       (thresh_valid_out),
+        .module_ready   (bright_module_ready),   // OUTPUT
+        .filter_enable  (~KEY[2]),
+        .BPM_estimate   (8'd150),
+        .pix_out        (bright_pix_out),
+        .output_ready   (1'b1),
+        .valid_out      (bright_valid_out),
+        .brightness     (),
+        .brightness_mult()
+    );
 
-		 .pix_out        (bright_pix_out),
-		 .output_ready   (1'b1),                // always ready (no downstream backpressure yet)
-		 .valid_out      (bright_valid_out),
-		 .brightness     (bright_value),
-		 .brightness_mult(bright_mult)
-	);
 
-	// For now, module is always "ready" since downstream is always accepting pixels.
-	assign bright_module_ready = 1'b1;
 
-	 
-	 //==============================================================
-	 // Pixel Wise Filter Stage Two ()
-	 //==============================================================
-	 
-	 
     // ============================================================
     // Pixel → VGA RGB
     // ============================================================
-    assign VGA_R = (visible && valid) ? bright_pix_out : 8'd0;
-    assign VGA_G = (visible && valid) ? bright_pix_out : 8'd0;
-    assign VGA_B = (visible && valid) ? bright_pix_out : 8'd0;
+    assign VGA_R = (visible && bright_valid_out) ? bright_pix_out : 8'd0;
+    assign VGA_G = (visible && bright_valid_out) ? bright_pix_out : 8'd0;
+    assign VGA_B = (visible && bright_valid_out) ? bright_pix_out : 8'd0;
 
 endmodule

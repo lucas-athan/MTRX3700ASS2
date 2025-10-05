@@ -9,31 +9,56 @@ z2
 !i10f 100
 cModel Technology
 Z0 dC:/Users/lucas/MTRX3700ASS2/VGAStuff
-vgrayscale_producer
+vbrightness_filter
 Z1 DXx6 sv_std 3 std 0 22 VYECXdT12H8WgbUP_5Y6:3
-Z2 !s110 1759635926
+Z2 !s110 1759639443
 !i10b 1
-!s100 C:d[HCc2Omb`9@d9nS7Y[3
+!s100 i;U>G<1MiSbOHRE6hPID40
 Z3 !s11b Dg1SIo80bB@j0V0VzS_@n1
-I3;0ch69G34]i2j7b@D2>P3
+I1GUMZ<XFBWc;D7Y:l`I8]3
 Z4 VDg1SIo80bB@j0V0VzS_@n1
 S1
 R0
-Z5 w1759124250
-8grayscale_producer.sv
-Fgrayscale_producer.sv
-!i122 22
-L0 1 33
-Z6 OV;L;2020.1;71
+w1759636853
+8brightness_filter.sv
+Fbrightness_filter.sv
+!i122 30
+L0 6 47
+Z5 OV;L;2020.1;71
 r1
 !s85 0
 31
-Z7 !s108 1759635926.000000
-Z8 !s107 SimulationFiles/tb_just_brighten.sv|ImageRom.v|pll25.v|pixel_wise_filter.sv|grayscale_producer.sv|vga_sync.sv|top_level.sv|
-Z9 !s90 -reportprogress|300|+define+SIMULATION|top_level.sv|vga_sync.sv|grayscale_producer.sv|pixel_wise_filter.sv|pll25.v|ImageRom.v|SimulationFiles/tb_just_brighten.sv|
+Z6 !s108 1759639443.000000
+Z7 !s107 SimulationFiles/tb_just_brighten.sv|ImageRom.v|pll25.v|brightness_filter.sv|threshold_filter.sv|grayscale_producer.sv|vga_sync.sv|top_level.sv|
+Z8 !s90 -reportprogress|300|+define+SIMULATION|top_level.sv|vga_sync.sv|grayscale_producer.sv|threshold_filter.sv|brightness_filter.sv|pll25.v|ImageRom.v|SimulationFiles/tb_just_brighten.sv|
 !i113 1
-Z10 !s92 +define+SIMULATION
-Z11 tCvgOpt 0
+Z9 !s92 +define+SIMULATION
+Z10 tCvgOpt 0
+vgrayscale_producer
+R1
+R2
+!i10b 1
+!s100 C:d[HCc2Omb`9@d9nS7Y[3
+R3
+I3;0ch69G34]i2j7b@D2>P3
+R4
+S1
+R0
+Z11 w1759124250
+8grayscale_producer.sv
+Fgrayscale_producer.sv
+!i122 30
+L0 1 33
+R5
+r1
+!s85 0
+31
+R6
+R7
+R8
+!i113 1
+R9
+R10
 vImageRom
 R2
 !i10b 1
@@ -45,22 +70,22 @@ R0
 w1759632628
 8ImageRom.v
 FImageRom.v
-!i122 22
+!i122 30
 L0 3 78
-R6
+R5
 r1
 !s85 0
 31
+R6
 R7
 R8
-R9
 !i113 1
+R9
 R10
-R11
 n@image@rom
 vpixel_wise_filter
 R1
-R2
+!s110 1759635926
 !i10b 1
 !s100 dk6SfkMm9V4XEfc;dMjN40
 R3
@@ -73,16 +98,16 @@ w1759635565
 Fpixel_wise_filter.sv
 !i122 22
 L0 6 62
-R6
+R5
 r1
 !s85 0
 31
-R7
-R8
-R9
+!s108 1759635926.000000
+Z12 !s107 SimulationFiles/tb_just_brighten.sv|ImageRom.v|pll25.v|pixel_wise_filter.sv|grayscale_producer.sv|vga_sync.sv|top_level.sv|
+!s90 -reportprogress|300|+define+SIMULATION|top_level.sv|vga_sync.sv|grayscale_producer.sv|pixel_wise_filter.sv|pll25.v|ImageRom.v|SimulationFiles/tb_just_brighten.sv|
 !i113 1
+R9
 R10
-R11
 vpll25
 R2
 !i10b 1
@@ -94,43 +119,43 @@ R0
 w1759635316
 8pll25.v
 Fpll25.v
-!i122 22
+!i122 30
 L0 3 104
-R6
+R5
 r1
 !s85 0
 31
+R6
 R7
 R8
-R9
 !i113 1
+R9
 R10
-R11
 vtb_just_brighten
 R1
-R2
+!s110 1759638249
 !i10b 1
-!s100 Pei6zddS6b`oK5mXz?7iM0
+!s100 KJD272ET2[>3QA2i=>oaU1
 R3
-IkL;Cmj0zRaT^>b<WJgzfY3
+IHOho<Q?nXb:A@B2JgKU9h3
 R4
 S1
 R0
-w1759635913
-Z12 8SimulationFiles/tb_just_brighten.sv
-Z13 FSimulationFiles/tb_just_brighten.sv
-!i122 22
-L0 3 143
-R6
+w1759638236
+Z13 8SimulationFiles/tb_just_brighten.sv
+Z14 FSimulationFiles/tb_just_brighten.sv
+!i122 26
+L0 3 131
+R5
 r1
 !s85 0
 31
+!s108 1759638248.000000
 R7
 R8
-R9
 !i113 1
+R9
 R10
-R11
 vtb_top_level
 R1
 !s110 1759626950
@@ -142,44 +167,69 @@ R4
 S1
 R0
 w1759626758
-R12
 R13
+R14
 !i122 0
 L0 3 84
-R6
+R5
 r1
 !s85 0
 31
 !s108 1759626950.000000
-R8
+R12
 !s90 -reportprogress|300|top_level.sv|vga_sync.sv|grayscale_producer.sv|pixel_wise_filter.sv|pll25.v|ImageRom.v|SimulationFiles/tb_just_brighten.sv|
 !i113 1
-R11
+R10
+vthreshold_filter
+R1
+R2
+!i10b 1
+!s100 fLnM4QY_4=hLR65>06H8L0
+R3
+IJFI8l24MQjGjAXTMA0Z]n0
+R4
+S1
+R0
+w1759636881
+8threshold_filter.sv
+Fthreshold_filter.sv
+!i122 30
+L0 6 44
+R5
+r1
+!s85 0
+31
+R6
+R7
+R8
+!i113 1
+R9
+R10
 vtop_level
 R1
 R2
 !i10b 1
-!s100 YdLjo<TkCUQ?]HXgN`AzM3
+!s100 @RcR5R[:NPZ;f5fD1CAKi1
 R3
-IL@@f[j00MAN9<K<40MHfH2
+Ia;G7A1;h=H=AKj[cP8cK93
 R4
 S1
 R0
-w1759631700
+w1759639427
 8top_level.sv
 Ftop_level.sv
-!i122 22
-L0 1 114
-R6
+!i122 30
+L0 1 117
+R5
 r1
 !s85 0
 31
+R6
 R7
 R8
-R9
 !i113 1
+R9
 R10
-R11
 vvga_sync
 R1
 R2
@@ -190,18 +240,18 @@ I>bdccPemFBQ6jh8;:YR8e0
 R4
 S1
 R0
-R5
+R11
 8vga_sync.sv
 Fvga_sync.sv
-!i122 22
+!i122 30
 L0 1 50
-R6
+R5
 r1
 !s85 0
 31
+R6
 R7
 R8
-R9
 !i113 1
+R9
 R10
-R11
