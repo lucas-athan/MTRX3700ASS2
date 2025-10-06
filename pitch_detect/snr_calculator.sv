@@ -89,19 +89,19 @@
 
 `timescale 1ns/1ns
 module snr_calculator #(
-    parameter DATA_WIDTH = 16,   // Input audio width (integer part)
+    parameter DATA_WIDTH = 16,   // Input audio width
     parameter SNR_WIDTH  = 16    // Output SNR width
 )(
     input  logic                  clk,
     input  logic                  reset,
-    input  logic                  quiet_period,    // High = calibrate noise
+    input  logic                  quiet_period,    // HIGH = calibrate noise
 
     // Audio Input
     input  logic [DATA_WIDTH-1:0] audio_input,
     input  logic                  audio_input_valid,
     output logic                  audio_input_ready,
 
-    // SNR Output
+    // SNR results
     output logic [SNR_WIDTH-1:0]  snr_db,
     output logic [DATA_WIDTH-1:0] signal_rms,
     output logic [DATA_WIDTH-1:0] noise_rms,
@@ -109,13 +109,11 @@ module snr_calculator #(
     input  logic                  output_ready
 );
 
-    // Absolute value
+    // abs value
     logic [DATA_WIDTH-1:0] abs_data;
     always_comb begin
-        if (audio_input[DATA_WIDTH-1])
-            abs_data = ~audio_input + 1;
-        else
-            abs_data = audio_input;
+        if (audio_input[DATA_WIDTH-1]) abs_data <= (~audio_input + 1);
+        else abs_data <= audio_input;
     end
 
     // Extend to Q16.16 signed for filter
@@ -188,8 +186,8 @@ module snr_calculator #(
     // SNR Calculation (dB)
     logic signed [31:0] snr_calc;
     always_comb begin
-        snr_calc = 20 * ($signed({16'd0, log_signal}) - $signed({16'd0, log_noise})) >>> 8;
-        snr_db   = snr_calc;
+        snr_calc = 20 * (signed'({16'd0, log_signal}) - signed'({16'd0, log_noise})) >>> 8;
+        snr_db   = snr_calc * 2;
     end
 
     // Handshake / Valid signals

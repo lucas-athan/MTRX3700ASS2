@@ -10,13 +10,14 @@ module top_level #(
 	output      I2C_SCLK,
 	inout       I2C_SDAT,
 
-	output [6:0] HEX0, HEX1, HEX2, HEX3,
+	output [6:0] HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, HEX6, HEX7,
 	input  [3:0] KEY,
 	input		AUD_ADCDAT,
 	input    AUD_BCLK,     // 3.072 MHz clock from the WM8731
 	output   AUD_XCK,      // 18.432 MHz sampling clock to the WM8731
 	input    AUD_ADCLRCK,
-	output  logic [17:0] LEDR
+	output  logic [17:0] LEDR,
+	output logic [7:0] LEDG
 );
 	localparam W        = 16;   //NOTE: To change this, you must also change the Twiddle factor initialisations in r22sdf/Twiddle.v. You can use r22sdf/twiddle_gen.pl.
 	localparam NSamples = 1024; //NOTE: To change this, you must also change the SdfUnit instantiations in r22sdf/FFT.v accordingly.
@@ -78,8 +79,22 @@ module top_level #(
 	 
 	// for SNR Calc
 	logic quiet_period;
-   assign quiet_period = 1'b0;
-
+	assign quiet_period = 1'b0;
+//	logic [31:0] q_counter;
+//	always_ff @(posedge CLOCK_50 or posedge reset) begin 
+//		if (reset) begin 
+//			quiet_period <= 1'b1; 
+//			q_counter <= 0; 
+//		end 
+//		else if (quiet_period) begin 
+//			if (q_counter < 50_000_000) begin // 1s calibration 
+//			q_counter <= q_counter + 1; 
+//			end
+//			else begin 
+//				quiet_period <= 1'b0; 
+//			end 
+//		end
+//	end
    logic audio_input_ready;
    logic output_valid;
    logic output_ready;
@@ -97,6 +112,8 @@ module top_level #(
 
      .audio_input        (pitch_output_data),       // pitch output
      .audio_input_valid  (pitch_output_valid), 
+//	  .audio_input        (audio_input_data),       // normal audio output
+//     .audio_input_valid  (audio_input_valid), 
      .audio_input_ready  (audio_input_ready),
 
      .snr_db         (snr_db),
@@ -107,7 +124,7 @@ module top_level #(
 	);
 	
 	// Display:
-	display u_display (
+	display u_display_db (
 		.clk(adc_clk),
 		.value(snr_db),
 		.display0(HEX0),
@@ -115,6 +132,45 @@ module top_level #(
 		.display2(HEX2),
 		.display3(HEX3)
 	);
+	
+	bpm_test u_bmp_test (
+		.snr_db(snr_db),
+		.led_on(led_on)
+	);
+	
+	assign LEDG[0] = led_on;
+	
+	// !!! HERE !!!
+	// Top-level instantiation for bpm_detector
+	logic snr_valid;
+	logic beat_led;
+
+	// Assume snr_db is valid every clock cycle 
+	assign snr_valid = 1'b1;
+
+	bpm_detector #(
+		.SNR_WIDTH(W),
+		.CLK_FREQ(50_000_000),
+		.AUDIO_RATE(30720),  // Audio sample rate after decimation
+		.ALPHA(16'd3277)     // Smoothing factor ~0.1 (Q15)
+	) u_bpm_detector (
+		.clk(CLOCK_50),
+		.reset(reset),
+		.snr_db(snr_db),
+		.snr_valid(snr_valid),
+		.onset_detected(beat_led)
+	);
+	
+	// HERE
+	display u_display_bpm (
+		.clk(adc_clk),
+		.value(beat_led),
+		.display0(HEX4),
+		.display1(HEX5),
+		.display2(HEX6),
+		.display3(HEX7)
+	);
+
 
 
 endmodule
