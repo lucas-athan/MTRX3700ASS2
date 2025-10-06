@@ -18,13 +18,16 @@ module tb_just_brighten;
 
     // Reset and filter enables
     initial begin
-        KEY = 4'b1111;
+        KEY = 4'b1111;      // all released
         #200;
-        KEY[0] = 1'b0;   // assert reset
+        KEY[0] = 1'b0;      // assert reset
         #200;
-        KEY[0] = 1'b1;   // release reset
-        KEY[1] = 1'b0;   // enable threshold filter
-        KEY[2] = 1'b0;   // enable brightness filter
+        KEY[0] = 1'b1;      // release reset
+
+        // Enable only brightness filter
+        KEY[1] = 1'b1;      // threshold disabled
+        KEY[2] = 1'b0;      // brightness enabled
+        KEY[3] = 1'b1;
     end
 
     // ============================================================
@@ -46,7 +49,7 @@ module tb_just_brighten;
     // ============================================================
     // Simulation Control
     // ============================================================
-    localparam int TOTAL_PIXELS = 800 * 525;  // one VGA frame at 640x480@60Hz
+    localparam int TOTAL_PIXELS = 800 * 525;  // one VGA frame
 
     initial begin
         #(TOTAL_PIXELS * CLK_PERIOD_NS);
@@ -73,9 +76,9 @@ module tb_just_brighten;
     logic [7:0] pre_frame  [0:IMG_W*IMG_H-1];
     logic [7:0] post_frame [0:IMG_W*IMG_H-1];
 
-    // Capture ROM output and final VGA output during visible periods
+    // ✅ Updated capture: aligned with brightness stage output timing
     always @(posedge dut.VGA_CLK) begin
-        if (dut.sync_inst.visible && dut.producer.valid) begin
+        if (dut.sync_inst.visible && dut.bright_stage.valid_out) begin
             int idx;
             idx = dut.sync_inst.vcount * IMG_W + dut.sync_inst.hcount;
             pre_frame[idx]  <= dut.producer.pixel_out;
@@ -84,7 +87,7 @@ module tb_just_brighten;
     end
 
     // ============================================================
-    // Write out PPM images after 1 frame
+    // Write out PPM images after one frame
     // ============================================================
     initial begin
         #(TOTAL_PIXELS * CLK_PERIOD_NS + 1000);

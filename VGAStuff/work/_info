@@ -11,247 +11,198 @@ cModel Technology
 Z0 dC:/Users/lucas/MTRX3700ASS2/VGAStuff
 vbrightness_filter
 Z1 DXx6 sv_std 3 std 0 22 VYECXdT12H8WgbUP_5Y6:3
-Z2 !s110 1759639443
+!s110 1759711735
 !i10b 1
-!s100 i;U>G<1MiSbOHRE6hPID40
-Z3 !s11b Dg1SIo80bB@j0V0VzS_@n1
-I1GUMZ<XFBWc;D7Y:l`I8]3
-Z4 VDg1SIo80bB@j0V0VzS_@n1
+!s100 D0NmgkZQ1YG;6a[NAYeh72
+Z2 !s11b Dg1SIo80bB@j0V0VzS_@n1
+IbnfC=JR0Qm5H:LJ6[?U3d0
+Z3 VDg1SIo80bB@j0V0VzS_@n1
 S1
 R0
-w1759636853
+w1759711503
 8brightness_filter.sv
 Fbrightness_filter.sv
-!i122 30
-L0 6 47
-Z5 OV;L;2020.1;71
+!i122 5
+L0 8 59
+Z4 OV;L;2020.1;71
 r1
 !s85 0
 31
-Z6 !s108 1759639443.000000
-Z7 !s107 SimulationFiles/tb_just_brighten.sv|ImageRom.v|pll25.v|brightness_filter.sv|threshold_filter.sv|grayscale_producer.sv|vga_sync.sv|top_level.sv|
-Z8 !s90 -reportprogress|300|+define+SIMULATION|top_level.sv|vga_sync.sv|grayscale_producer.sv|threshold_filter.sv|brightness_filter.sv|pll25.v|ImageRom.v|SimulationFiles/tb_just_brighten.sv|
+!s108 1759711735.000000
+!s107 brightness_filter.sv|
+!s90 -reportprogress|300|+define+SIMULATION|brightness_filter.sv|
 !i113 1
-Z9 !s92 +define+SIMULATION
-Z10 tCvgOpt 0
+Z5 !s92 +define+SIMULATION
+Z6 tCvgOpt 0
 vgrayscale_producer
 R1
-R2
+Z7 !s110 1759710339
 !i10b 1
 !s100 C:d[HCc2Omb`9@d9nS7Y[3
-R3
+R2
 I3;0ch69G34]i2j7b@D2>P3
-R4
+R3
 S1
 R0
-Z11 w1759124250
+Z8 w1759124250
 8grayscale_producer.sv
 Fgrayscale_producer.sv
-!i122 30
+!i122 0
 L0 1 33
-R5
+R4
 r1
 !s85 0
 31
-R6
-R7
-R8
+Z9 !s108 1759710338.000000
+Z10 !s107 SimulationFiles/tb_just_brighten.sv|ImageRom.v|pll25.v|brightness_filter.sv|threshold_filter.sv|grayscale_producer.sv|vga_sync.sv|top_level.sv|
+Z11 !s90 -reportprogress|300|+define+SIMULATION|top_level.sv|vga_sync.sv|grayscale_producer.sv|threshold_filter.sv|brightness_filter.sv|pll25.v|ImageRom.v|SimulationFiles/tb_just_brighten.sv|
 !i113 1
-R9
-R10
+R5
+R6
 vImageRom
-R2
+R7
 !i10b 1
 !s100 gG2[;9fbeEP8S1kYfm@;j0
-R3
+R2
 I?<X9J9aWhXg7=8fU4GZJ43
-R4
+R3
 R0
 w1759632628
 8ImageRom.v
 FImageRom.v
-!i122 30
+!i122 0
 L0 3 78
-R5
-r1
-!s85 0
-31
-R6
-R7
-R8
-!i113 1
-R9
-R10
-n@image@rom
-vpixel_wise_filter
-R1
-!s110 1759635926
-!i10b 1
-!s100 dk6SfkMm9V4XEfc;dMjN40
-R3
-INbh`SHIJjXN0?3aRK=Z3S3
 R4
-S1
-R0
-w1759635565
-8pixel_wise_filter.sv
-Fpixel_wise_filter.sv
-!i122 22
-L0 6 62
-R5
 r1
 !s85 0
 31
-!s108 1759635926.000000
-Z12 !s107 SimulationFiles/tb_just_brighten.sv|ImageRom.v|pll25.v|pixel_wise_filter.sv|grayscale_producer.sv|vga_sync.sv|top_level.sv|
-!s90 -reportprogress|300|+define+SIMULATION|top_level.sv|vga_sync.sv|grayscale_producer.sv|pixel_wise_filter.sv|pll25.v|ImageRom.v|SimulationFiles/tb_just_brighten.sv|
-!i113 1
 R9
 R10
+R11
+!i113 1
+R5
+R6
+n@image@rom
 vpll25
-R2
+R7
 !i10b 1
 !s100 kD?omU^ZXIdSg;4A?TMMl1
-R3
+R2
 I32;iUCzT1z832;eQ23n303
-R4
+R3
 R0
 w1759635316
 8pll25.v
 Fpll25.v
-!i122 30
+!i122 0
 L0 3 104
-R5
+R4
 r1
 !s85 0
 31
-R6
-R7
-R8
-!i113 1
 R9
 R10
+R11
+!i113 1
+R5
+R6
 vtb_just_brighten
 R1
-!s110 1759638249
+R7
 !i10b 1
-!s100 KJD272ET2[>3QA2i=>oaU1
+!s100 :Xo9CSfdo?<2@3G7U0YEj1
+R2
+I9Fmglm9DDKAH3<6Zl2NY33
 R3
-IHOho<Q?nXb:A@B2JgKU9h3
-R4
 S1
 R0
-w1759638236
-Z13 8SimulationFiles/tb_just_brighten.sv
-Z14 FSimulationFiles/tb_just_brighten.sv
-!i122 26
-L0 3 131
-R5
+w1759710327
+8SimulationFiles/tb_just_brighten.sv
+FSimulationFiles/tb_just_brighten.sv
+!i122 0
+L0 3 167
+R4
 r1
 !s85 0
 31
-!s108 1759638248.000000
-R7
-R8
-!i113 1
 R9
 R10
-vtb_top_level
-R1
-!s110 1759626950
-!i10b 1
-!s100 4i]R6_[<O4_=dTo2K^CW?0
-R3
-IhKKa43Fkb6gb72WS;>DQA1
-R4
-S1
-R0
-w1759626758
-R13
-R14
-!i122 0
-L0 3 84
-R5
-r1
-!s85 0
-31
-!s108 1759626950.000000
-R12
-!s90 -reportprogress|300|top_level.sv|vga_sync.sv|grayscale_producer.sv|pixel_wise_filter.sv|pll25.v|ImageRom.v|SimulationFiles/tb_just_brighten.sv|
+R11
 !i113 1
-R10
+R5
+R6
 vthreshold_filter
 R1
-R2
+!s110 1759710889
 !i10b 1
-!s100 fLnM4QY_4=hLR65>06H8L0
+!s100 o6;4b@od^M>N3h8?Cfn0b3
+R2
+I=jf^XW3=dh@ejCeA4mKfJ1
 R3
-IJFI8l24MQjGjAXTMA0Z]n0
-R4
 S1
 R0
-w1759636881
+w1759710546
 8threshold_filter.sv
 Fthreshold_filter.sv
-!i122 30
-L0 6 44
-R5
+!i122 2
+L0 12 60
+R4
 r1
 !s85 0
 31
-R6
-R7
-R8
+!s108 1759710889.000000
+!s107 brightness_filter.sv|threshold_filter.sv|
+!s90 -reportprogress|300|+define+SIMULATION|threshold_filter.sv|brightness_filter.sv|
 !i113 1
-R9
-R10
+R5
+R6
 vtop_level
 R1
-R2
+R7
 !i10b 1
-!s100 @RcR5R[:NPZ;f5fD1CAKi1
+!s100 WZeUP7^2dYJ9QR9dkmoon2
+R2
+IX?k<gEc7`<8b7nNHjm>Vd1
 R3
-Ia;G7A1;h=H=AKj[cP8cK93
-R4
 S1
 R0
-w1759639427
+w1759707942
 8top_level.sv
 Ftop_level.sv
-!i122 30
-L0 1 117
-R5
+!i122 0
+L0 1 128
+R4
 r1
 !s85 0
 31
-R6
-R7
-R8
-!i113 1
 R9
 R10
+R11
+!i113 1
+R5
+R6
 vvga_sync
 R1
-R2
+R7
 !i10b 1
 !s100 TzG5R0UcYdJYY9mJ66MWk3
-R3
+R2
 I>bdccPemFBQ6jh8;:YR8e0
-R4
+R3
 S1
 R0
-R11
+R8
 8vga_sync.sv
 Fvga_sync.sv
-!i122 30
+!i122 0
 L0 1 50
-R5
+R4
 r1
 !s85 0
 31
-R6
-R7
-R8
-!i113 1
 R9
 R10
+R11
+!i113 1
+R5
+R6

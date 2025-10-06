@@ -1,52 +1,75 @@
 `timescale 1ns/1ps
+// ============================================================
+// Brightness Filter
+// Adds scaled brightness with saturation.
+// Transparent when disabled.
+// ============================================================
 
-// Brightness filter module
-// Adds scaled brightness to pixel and averages.
-
-module brightness_filter 
-#(
-    parameter int BITS         = 8,   // pixel bit depth
-    parameter int MAX_BPM      = 200,
-    parameter int STEP_SIZE    = (256 * (1<<8)) / 200
-)
-(
+module brightness_filter #(
+    parameter int BITS    = 8,
+    parameter int MAX_BPM = 200
+)(
     input  logic                  clk,
     input  logic                  reset,
 
-    input  logic [BITS-1:0]       pix_in,       
+    // Stream input
+    input  logic [BITS-1:0]       pix_in,
     input  logic                  valid_in,
-    output logic                  module_ready,
 
+    // Handshake
+    input  logic                  module_ready,   // downstream ready
+    output logic                  output_ready,   // upstream ready
+
+    // Control
     input  logic                  filter_enable,
-    input  logic [$clog2(MAX_BPM+1)-1:0] BPM_estimate, 
+    input  logic [$clog2(MAX_BPM+1)-1:0] BPM_estimate,
 
+    // Stream output
     output logic [BITS-1:0]       pix_out,
-    input  logic                  output_ready,
     output logic                  valid_out,
-    output logic [BITS-1:0]       brightness,
-    output logic [23:0]           brightness_mult
+
+    // Debug
+    output logic [BITS-1:0]       brightness
 );
 
-assign module_ready = output_ready;
-
-logic [BITS:0] pix_bright_addition;
-
-// Scale brightness based on BPM
-assign brightness_mult = (STEP_SIZE * BPM_estimate) >> 8;
-assign brightness      = (brightness_mult > 255) ? 8'd255 : brightness_mult[7:0];
-
-always_comb begin
-    // ✅ Default assignments
-    pix_bright_addition = '0;
-    pix_out             = pix_in;
-
-    if (module_ready && valid_in && filter_enable) begin
-        // additive / averaging
-        pix_bright_addition = (pix_in + brightness) >> 1;
-        pix_out = pix_bright_addition;
+    // ============================================================
+    // Derived brightness value (scaled linearly with BPM)
+    // ============================================================
+    always_comb begin
+        brightness = ((BPM_estimate * 8'd255) + (MAX_BPM/2)) / MAX_BPM;
     end
-end
 
-assign valid_out = module_ready && valid_in && filter_enable;
+    // ============================================================
+    // Sequential pixel pipeline
+    // ============================================================
+    always_ff @(posedge clk or posedge reset) begin
+        if (reset) begin
+            pix_out      <= '0;
+            valid_out    <= 1'b0;
+            output_ready <= 1'b1;
+        end else begin
+            // propagate handshake readiness
+            output_ready <= module_ready;
+
+            if (valid_in && module_ready) begin
+                if (filter_enable) begin
+                    // Add brightness with saturation
+                    logic [BITS:0] sum;
+                    sum = pix_in + brightness;
+                    if (sum > 8'd255)
+                        pix_out <= 8'd255;
+                    else
+                        pix_out <= sum[7:0];
+                end else begin
+                    // Transparent when disabled
+                    pix_out <= pix_in;
+                end
+
+                valid_out <= 1'b1;
+            end else begin
+                valid_out <= 1'b0;
+            end
+        end
+    end
 
 endmodule
