@@ -1,18 +1,19 @@
 module adsr_filter #(
-    parameter int ATTACK     = 2,
-    parameter int DECAY      = 2,
-    parameter int SUSTAIN    = 2,
-    parameter int RELEASE    = 2,
-    parameter int MIN_BPM    = 40,
-    parameter int MAX_BPM    = 200,
-    parameter int BITS       = 8,
-    parameter int IMAGE_WIDTH  = 640,
-    parameter int IMAGE_HEIGHT = 480,
-    parameter int STEP_SIZE  = (256 * (1 << 8)) / MAX_BPM
+    parameter int ATTACK         = 2,
+    parameter int DECAY          = 2,
+    parameter int SUSTAIN        = 2,
+    parameter int RELEASE        = 2,
+    parameter int MIN_BPM        = 40,
+    parameter int MAX_BPM        = 200,
+    parameter int BITS           = 8,
+    parameter int IMAGE_WIDTH    = 640,
+    parameter int IMAGE_HEIGHT   = 480,
+    parameter int STEP_SIZE      = (256 * (1 << 8)) / MAX_BPM
 )(
     input  logic                              clk,
     input  logic                              reset,
-    
+    input  logic                              freeze, // <--- NEW INPUT
+
     // Input pixel stream (one pixel per cycle)
     input  logic [BITS-1:0]                   pix_in,
     input  logic                              valid_in,
@@ -46,22 +47,22 @@ assign radius = pulse_amplitude >> 1;
 logic [31:0] radius_sq;
 assign radius_sq = radius * radius;
 
-// Pulse center (fixed)
-logic [$clog2(IMAGE_WIDTH)-1:0] cx = IMAGE_WIDTH / 2;
-logic [$clog2(IMAGE_HEIGHT)-1:0] cy = IMAGE_HEIGHT / 2;
+// Pulse center (signed!)
+logic signed [15:0] cx = IMAGE_WIDTH / 2;
+logic signed [15:0] cy = IMAGE_HEIGHT / 2;
 
-// Distance calculation
+// Distance calculation (signed)
 logic signed [15:0] dx, dy;
 logic [31:0] dist_sq;
 logic [31:0] diff;
 
 always_comb begin
-    dx = $signed(pixel_x) - $signed(cx);
-    dy = $signed(pixel_y) - $signed(cy);
+    dx = $signed(pixel_x) - cx;
+    dy = $signed(pixel_y) - cy;
     dist_sq = dx * dx + dy * dy;
 end
 
-// BPM-based brightness gain
+// BPM-based gain
 assign bpm_brightness_mult = (STEP_SIZE * BPM_estimate) >> 8;
 assign bpm_brightness_gain = (bpm_brightness_mult > 255) ? 8'd255 : bpm_brightness_mult[7:0];
 assign env_brightness_gain = (env_gain * bpm_brightness_gain) >> 8;
@@ -74,8 +75,7 @@ logic [BITS-1:0] temp_pix_out;
 always_ff @(posedge clk) begin
     if (reset) begin
         brightness_gain_temp <= 0;
-    end
-    else if (valid_in && filter_enable) begin
+    end else if (valid_in && filter_enable) begin
         if (dist_sq >= radius_sq) begin
             brightness_gain_temp <= 0;
         end else begin
@@ -85,7 +85,6 @@ always_ff @(posedge clk) begin
     end
 end
 
-// Pixel filter application
 always_comb begin
     if (valid_in && filter_enable && brightness_gain_temp != 0) begin
         pix_bright_addition = (pix_in + brightness_gain_temp) / 2;
@@ -106,7 +105,7 @@ always_ff @(posedge clk or posedge reset) begin
     end
 end
 
-// ADSR State Machine
+// --- ADSR FSM --- //
 typedef enum logic [2:0] {S_IDLE, S_ATTACK, S_DECAY, S_SUSTAIN, S_RELEASE} adsr_state_t;
 adsr_state_t state, next_state;
 
@@ -114,7 +113,7 @@ logic [15:0] adsr_counter;
 logic [15:0] env_gain;
 logic [BITS-1:0] decay_target;
 
-// Tick generator: every 4ms
+// Tick generator: every 4ms (200_000 @ 50 MHz)
 localparam int TICK_DIV = 200_000;
 logic [17:0] tick_cnt;
 logic tick_4ms;
@@ -123,12 +122,14 @@ always_ff @(posedge clk) begin
     if (reset) begin
         tick_cnt <= 0;
         tick_4ms <= 0;
-    end else if (tick_cnt == TICK_DIV-1) begin
+    end else if (!freeze && tick_cnt == TICK_DIV-1) begin
         tick_cnt <= 0;
         tick_4ms <= 1;
-    end else begin
+    end else if (!freeze) begin
         tick_cnt <= tick_cnt + 1;
         tick_4ms <= 0;
+    end else begin
+        tick_4ms <= 0; // No tick if frozen
     end
 end
 
@@ -169,28 +170,24 @@ always_ff @(posedge clk) begin
                     decay_target <= env_gain - DECAY;
                 end
             end
-
             S_DECAY: begin
                 adsr_counter <= adsr_counter + 1;
                 env_gain <= env_gain - ((env_gain - decay_target) * adsr_counter) / DECAY;
                 if (adsr_counter == DECAY)
                     adsr_counter <= 0;
             end
-
             S_SUSTAIN: begin
                 adsr_counter <= adsr_counter + 1;
                 env_gain <= decay_target;
                 if (adsr_counter == SUSTAIN)
                     adsr_counter <= 0;
             end
-
             S_RELEASE: begin
                 adsr_counter <= adsr_counter + 1;
                 env_gain <= env_gain - (env_gain * adsr_counter) / RELEASE;
                 if (adsr_counter == RELEASE)
                     adsr_counter <= 0;
             end
-
             default: begin
                 env_gain <= 0;
                 adsr_counter <= 0;
