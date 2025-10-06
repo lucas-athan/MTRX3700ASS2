@@ -49,7 +49,7 @@ set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
 set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 1
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
-set_global_assignment -name PARTITION_NETLIST_TYPE POST_FIT -section_id Top
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name EDA_SIMULATION_TOOL "ModelSim-Altera (Verilog)"
@@ -1172,4 +1172,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE rc_low_pass.sv
 set_global_assignment -name SYSTEMVERILOG_FILE snr_calculator.sv
 set_global_assignment -name SYSTEMVERILOG_FILE bpm_detector.sv
 set_global_assignment -name SYSTEMVERILOG_FILE bpm_test.sv
+set_global_assignment -name SYSTEMVERILOG_FILE beat_pulse.sv
+set_global_assignment -name SYSTEMVERILOG_FILE bpm_energy_detector.sv
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

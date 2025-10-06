@@ -133,43 +133,75 @@ module top_level #(
 		.display3(HEX3)
 	);
 	
-	bpm_test u_bmp_test (
+	beat_pulse u_beat_pulse (
 		.snr_db(snr_db),
-		.led_on(led_on)
+		.beat_pulse(beat_pulse)
 	);
 	
-	assign LEDG[0] = led_on;
+	assign LEDG[0] = beat_pulse;
 	
 	// !!! HERE !!!
 	// Top-level instantiation for bpm_detector
-	logic snr_valid;
-	logic beat_led;
+//	logic snr_valid;
+//	logic beat_led;
+//
+//	// Assume snr_db is valid every clock cycle 
+//	assign snr_valid = 1'b1;
+//
+//	bpm_detector #(
+//		.SNR_WIDTH(W),
+//		.CLK_FREQ(50_000_000),
+//		.AUDIO_RATE(30720),  // Audio sample rate after decimation
+//		.ALPHA(16'd3277)     // Smoothing factor ~0.1 (Q15)
+//	) u_bpm_detector (
+//		.clk(CLOCK_50),
+//		.reset(reset),
+//		.snr_db(snr_db),
+//		.snr_valid(snr_valid),
+//		.onset_detected(beat_led)
+//	);
 
-	// Assume snr_db is valid every clock cycle 
-	assign snr_valid = 1'b1;
-
-	bpm_detector #(
-		.SNR_WIDTH(W),
-		.CLK_FREQ(50_000_000),
-		.AUDIO_RATE(30720),  // Audio sample rate after decimation
-		.ALPHA(16'd3277)     // Smoothing factor ~0.1 (Q15)
-	) u_bpm_detector (
-		.clk(CLOCK_50),
-		.reset(reset),
-		.snr_db(snr_db),
-		.snr_valid(snr_valid),
-		.onset_detected(beat_led)
-	);
+//	bpm_detector #(
+//		.SNR_WIDTH(W)
+//	) u_bpm_detector (
+//		.clk(CLOCK_50),
+//		.reset(reset),
+//		.beat_pulse(beat_pulse),
+//		.bpm_val(bpm_val)
+//	);
 	
+	// --- BPM Energy Detector Instantiation ---
+	logic [W-1:0] bpm_val;
+	logic beat_detected;
+
+	bpm_energy_detector #(
+    .SAMPLE_WIDTH(W),
+    .CLOCK_FREQ(18_432_000),   // same as adc_clk frequency
+    .SAMPLE_RATE(30_720),
+    .WINDOW_SIZE(614),         // 20 ms @ 30.72 kHz
+    .ENERGY_WIDTH(32),
+    .BPM_WIDTH(W)
+	) u_bpm_energy_detector (
+    .clk(adc_clk),
+    .reset(reset),
+    .audio_sample(audio_input_data),
+    .sample_valid(audio_input_valid),
+    .bpm_val(bpm_val),
+    .beat_detected(beat_detected)
+	);
+
+
 	// HERE
 	display u_display_bpm (
 		.clk(adc_clk),
-		.value(beat_led),
+		.value(bpm_val),
 		.display0(HEX4),
 		.display1(HEX5),
 		.display2(HEX6),
 		.display3(HEX7)
 	);
+	
+	assign LEDG[1] = beat_detected;
 
 
 
