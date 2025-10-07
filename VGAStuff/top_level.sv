@@ -79,6 +79,10 @@ module top_level (
     wire       bright_valid_out;
     wire       bright_output_ready;
 
+    wire [7:0] adsr_pix_out;
+    wire       adsr_valid_out;
+    wire       adsr_output_ready;
+
     // ---------- Stage 1: Threshold ----------
     threshold_filter thresh_stage (
         .clk           (pix_clk),
@@ -106,7 +110,7 @@ module top_level (
         .pix_in        (thresh_pix_out),
         .valid_in      (thresh_valid_out),
 
-        .module_ready  (1'b1),                  // VGA sink always ready
+        .module_ready  (adsr_output_ready),                  // VGA sink always ready
         .output_ready  (bright_output_ready),   // drives upstream stage
 
         .filter_enable (~KEY[2]),
@@ -117,12 +121,36 @@ module top_level (
         .brightness    ()
     );
 
+    // --------- Stage 3: ADSR ----------
+    adsr_filter adsr_stage (
+        .clk           (pix_clk),
+        .reset         (~KEY[0]),
+
+        .pix_in        (bright_pix_out),
+        .valid_in      (bright_valid_out),
+
+        .module_ready  (1'b1),
+        .output_ready  (adsr_output_ready),
+
+        .filter_enable (~KEY[3]),
+        .BPM_estimate  (8'd150),
+
+        .pix_out       (adsr_pix_out),
+        .valid_out     (adsr_valid_out),
+        .pulse_amplitude (8'd200), 
+
+        .bpm_brightness_gain (),
+        .env_brightness_gain (),
+        .bpm_brightness_mult (),
+        .brightness_gain     ()
+    );
+
 
     // ============================================================
     // Pixel → VGA RGB output
     // ============================================================
-    assign VGA_R = (visible && bright_valid_out) ? bright_pix_out : 8'd0;
-    assign VGA_G = (visible && bright_valid_out) ? bright_pix_out : 8'd0;
-    assign VGA_B = (visible && bright_valid_out) ? bright_pix_out : 8'd0;
+    assign VGA_R = (visible && bright_valid_out) ? adsr_pix_out : 8'd0;
+    assign VGA_G = (visible && bright_valid_out) ? adsr_pix_out : 8'd0;
+    assign VGA_B = (visible && bright_valid_out) ? adsr_pix_out : 8'd0;
 
 endmodule
