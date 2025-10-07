@@ -8,19 +8,17 @@ module sobel_edge_stream #(
 
     input  logic [PIXEL_BITS-1:0] pixel_in,
     input  logic                  pixel_in_valid,
-    output logic                  pixel_in_ready,
 
     output logic [PIXEL_BITS-1:0] pixel_out,
     output logic                  pixel_out_valid,
-    input  logic                  pixel_out_ready
 );
 
     // FSM
     typedef enum logic [2:0] {
-        S_IDLE,
-        S_READ,
-        S_PROCESS,
-        S_DONE
+        IDLE,
+        READ,
+        PROCESS,
+        DONE
     } state_t;
 
     state_t state, next_state;
@@ -47,13 +45,13 @@ module sobel_edge_stream #(
     // FSM + position counters
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            state <= S_IDLE;
+            state <= IDLE;
             x <= 0;
             y <= 0;
         end 
         else begin
             state <= next_state;
-            if (state == S_READ && pixel_in_valid && pixel_in_ready) begin
+            if (state == READ && pixel_in_valid) begin
                 if (x == IMG_WIDTH-1) begin
                     x <= 0;
                     if (y == IMG_HEIGHT-1)
@@ -70,36 +68,33 @@ module sobel_edge_stream #(
     // Next state logic
     always_comb begin
         next_state = state;
-        pixel_in_ready = 0;
         pixel_out_valid = 0;
 
         case(state)
-            S_IDLE: begin
-                next_state = S_READ;
+            IDLE: begin
+                next_state = READ;
             end
 
-            S_READ: begin
-                pixel_in_ready = 1;
+            READ: begin
                 if (pixel_in_valid) begin
-                    next_state = S_PROCESS;
+                    next_state = PROCESS;
                 end
             end
 
-            S_PROCESS: begin
+            PROCESS: begin
                 pixel_out_valid = 1;
-                if (pixel_out_ready)
-                    next_state = S_READ;
+                next_state = READ;
             end
 
-            S_DONE: begin
-                next_state = S_IDLE;
+            DONE: begin
+                next_state = IDLE;
             end
         endcase
     end
 
     // --- Line buffer shifting ---
     always_ff @(posedge clk) begin
-        if (state == S_READ && pixel_in_valid && pixel_in_ready) begin
+        if (state == READ && pixel_in_valid) begin
             // shift window horizontally
             w00 <= w01; w01 <= w02; w02 <= linebuf2[x];
             w10 <= w11; w11 <= w12; w12 <= linebuf1[x];

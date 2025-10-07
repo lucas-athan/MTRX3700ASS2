@@ -10,12 +10,16 @@
 module top_level_fsm (
     input  logic         clk,
     input  logic         reset,
+
     input  logic [7:0]   pixel_in,        // grayscale or RGB channel input
-    input  logic         pixel_valid_in,
-    output logic [7:0]   pixel_out,       // processed output
-    output logic         pixel_valid_out,
+    input  logic         pixel_in_valid,
+
     input  logic [15:0]  BPM_estimate,    // beats per minute input
     input  logic         beat_detected    // 1 if beat pulse detected
+    input  logic         filter_enable
+
+    output logic [7:0]   pixel_out,       // processed output
+    output logic         pixel_out_valid,
 );
 
     // FSM states
@@ -26,15 +30,16 @@ module top_level_fsm (
         MID_BPM,     // Filter A + Filter B
         HIGH_BPM     // Filter A + Filter B + Filter C
     } state_t;
-
     state_t current_state, next_state;
 
     // State register
     always_ff @(posedge clk or posedge reset) begin
-        if (reset)
+        if (reset) begin
             current_state <= IDLE;
-        else
+        end
+        else begin
             current_state <= next_state;
+        end
     end
 
     // Next-state logic
@@ -42,7 +47,7 @@ module top_level_fsm (
         next_state = current_state;
         case (current_state)
             IDLE: begin
-                if (pixel_valid_in)
+                if (pixel_in_valid)
                     next_state = EDGE;
             end
             EDGE: begin
@@ -62,97 +67,91 @@ module top_level_fsm (
         endcase
     end
 
-    // Signals between filters
-    logic [7:0] edge_pixel;
-    logic       edge_valid;
+    // !!! RENAME LATER !!!
+    // Signals between filters 
+    logic [7:0] pixel_wire_1,   pixel_wire_2,   pixel_wire_3,   pixel_wire_4;
+    logic       pixel_valid_1,  pixel_valid_2,  pixel_valid_3,  pixel_valid_4;
+    logic       busy
 
-    logic [7:0] blur_pixel;
-    logic       blur_valid;
-
-    logic [7:0] colour_pixel;
-    logic       colour_valid;
-
-    logic [7:0] placeholder_pixel;
-    logic       placeholder_valid;
 
     // Edge detector is always active
     edge_detect edge_inst (
         .clk(clk),
         .reset(reset),
         .pixel_in(pixel_in),
-        .pixel_valid_in(pixel_valid_in),
-        .pixel_out(edge_pixel),
-        .pixel_valid_out(edge_valid)
+        .pixel_in_valid(pixel_in_valid),
+        .pixel_out(pixel_wire_1),
+        .pixel_out_valid(pixel_valid_1)
     );
 
     // Blur + zoom (on beat)
-    blur_zoom blur_inst (
+    animate_controller anim_inst (
         .clk(clk),
         .reset(reset),
-        .pixel_in(edge_pixel),
-        .pixel_valid_in(edge_valid),
-        .beat_detected(beat_detected),
-        .pixel_out(blur_pixel),
-        .pixel_valid_out(blur_valid)
-    );
-
-    // Colour change (based on BPM)
-    colour_change colour_inst (
-        .clk(clk),
-        .reset(reset),
-        .pixel_in(blur_pixel),
-        .pixel_valid_in(blur_valid),
-        .BPM_estimate(BPM_estimate),
-        .pixel_out(colour_pixel),
-        .pixel_valid_out(colour_valid)
+        .beat_trigger(),
+        .pixel_in(pixel_wire_1),
+        .pixel_in_valid(pixel_valid_1),
+        .pixel_out(pixel_wire_2),
+        .pixel_out_valid(pixel_valid_2),
+        .busy(busy)
     );
 
     // Placeholder filter (can be replaced later)
     placeholder_filter placeholder_inst (
         .clk(clk),
         .reset(reset),
-        .pixel_in(colour_pixel),
-        .pixel_valid_in(colour_valid),
-        .pixel_out(placeholder_pixel),
-        .pixel_valid_out(placeholder_valid)
+        .pixel_in(pixel_wire_2),
+        .pixel_in_valid(pixel_valid_2),
+        .pixel_out(pixel_wire_3),
+        .pixel_out_valid(pixel_valid_3)
+    );
+
+    // Placeholder filter (can be replaced later)
+    placeholder_filter placeholder_inst (
+        .clk(clk),
+        .reset(reset),
+        .pixel_in(pixel_wire_3),
+        .pixel_in_valid(pixel_valid_3),
+        .pixel_out(pixel_wire_4),
+        .pixel_out_valid(pixel_valid_4)
     );
 
     // FSM Controlled Data Routing
     // Desc: This fsm controls what filters the pixels go through based on the BPM
 
     assign pixel_out = 8'd0;
-    assign pixel_valid_out = 1'b0;
+    assign pixel_out_valid = 0;
 
     // This assignes where the pipeline stops
-    // All the filters are conected into one another and pixels will flow through until pixel_valid_out is triggered
-    // This assigns which filter triggers the pixel_valid_out 
+    // All the filters are conected into one another and pixels will flow through until pixel_out_valid is triggered
+    // This assigns which filter triggers the pixel_out_valid 
     always_comb begin
         pixel_out       = 8'd0;
-        pixel_valid_out = 1'b0;
+        pixel_out_valid = 0;
         case (current_state)
             IDLE: begin
-                pixel_out = pixel_in;
-                pixel_valid_out = pixel_valid_in
+                pixel_out       = pixel_in;
+                pixel_out_valid = pixel_in_valid;
             end
             EDGE: begin
-                pixel_out = edge_pixel;
-                pixel_valid_out = edge_valid;
+                pixel_out       = pixel_wire_2;
+                pixel_out_valid = pixel_valid_2;
             end
             LOW_BPM: begin
-                pixel_out       = blur_pixel;
-                pixel_valid_out = blur_valid;
+                pixel_out       = pixel_wire_2;
+                pixel_out_valid = pixel_valid_2;
             end
             MID_BPM: begin
-                pixel_out       = colour_pixel;
-                pixel_valid_out = colour_valid;
+                pixel_out       = pixel_wire_3;
+                pixel_out_valid = pixel_valid_3;
             end
             HIGH_BPM: begin
-                pixel_out       = placeholder_pixel;
-                pixel_valid_out = placeholder_valid;
+                pixel_out       = pixel_wire_4;
+                pixel_out_valid = pixel_valid_4;
             end
             default: begin
-                pixel_out       = edge_pixel;
-                pixel_valid_out = edge_valid;
+                pixel_out       = pixel_in;
+                pixel_out_valid = pixel_in_valid;
             end
         endcase
     end
