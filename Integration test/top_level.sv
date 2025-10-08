@@ -1,5 +1,7 @@
 module top_level #(
-	parameter int DE1_SOC = 0 // !!!IMPORTANT: Set this to 1 for DE1-SoC or 0 for DE2-115
+	parameter int DE1_SOC = 0, // !!!IMPORTANT: Set this to 1 for DE1-SoC or 0 for DE2-115
+	parameter int IMG_W = 640,
+	parameter int IMG_H = 480
 ) (
 	input       CLOCK_50,     // 50 MHz only used as input to the PLLs.
 
@@ -248,6 +250,15 @@ module top_level #(
     wire       adsr_valid_out;
     wire       adsr_output_ready;
 
+    wire [7:0] pad_pix_out;
+    wire       pad_valid_out;
+    wire       pad_ready_out;
+
+    wire [7:0] conv_pix_out;
+    wire       conv_valid_out;
+    wire       conv_ready_upstream;
+    wire       conv_sop, conv_eop;
+
     // ---------- Stage 1: Threshold ----------
     threshold_filter thresh_stage (
         .clk           (pix_clk),
@@ -304,7 +315,7 @@ module top_level #(
         .pix_in        (bright_pix_out),
         .valid_in      (bright_valid_out),
 
-        .module_ready  (1'b1),                  // VGA sink always ready
+        .module_ready  (pad_ready_out),         // downstream ready (padding stage)
         .output_ready  (adsr_output_ready),     // drives upstream stage
 
         .filter_enable (beat_pulse),            // Trigger on beat pulse
@@ -322,12 +333,65 @@ module top_level #(
         .brightness_gain     ()
     );
 
+    // ---------- Stage 4: Padding (zero-pad 1 px border) ----------
+    pad #(
+        .WIDTH  (IMG_W),
+        .HEIGHT (IMG_H)
+    ) pad_stage (
+        .clk       (pix_clk),
+        .reset     (~KEY[0]),
+        .data_in   (adsr_pix_out),
+        .valid_in  (adsr_valid_out),
+        .ready_out (pad_ready_out),             // back to ADSR
+        .data_out  (pad_pix_out),
+        .valid_out (pad_valid_out),
+        .ready_in  (conv_ready_upstream)        // from convolution
+    );
+
+    // ---------- Stage 5: 3x3 Convolution ----------
+    // Kernel coefficients (identity or edge detection based on a future KEY)
+    // For now, using identity kernel (center = 1, rest = 0)
+		wire signed [7:0] k11 = (~KEY[2]) ? -8'sd1 : 8'sd0;
+		wire signed [7:0] k12 = (~KEY[2]) ?  8'sd0 : 8'sd0;
+		wire signed [7:0] k13 = (~KEY[2]) ?  8'sd1 : 8'sd0;
+		wire signed [7:0] k21 = (~KEY[2]) ? -8'sd2 : 8'sd0;
+		wire signed [7:0] k22 = (~KEY[2]) ?  8'sd0 : 8'sd1;   // center pixel
+		wire signed [7:0] k23 = (~KEY[2]) ?  8'sd2 : 8'sd0;
+		wire signed [7:0] k31 = (~KEY[2]) ? -8'sd1 : 8'sd0;
+		wire signed [7:0] k32 = (~KEY[2]) ?  8'sd0 : 8'sd0;
+		wire signed [7:0] k33 = (~KEY[2]) ?  8'sd1 : 8'sd0;
+
+
+    convolution_2d_filter #(
+        .WIDTH  (IMG_W + 2),
+        .HEIGHT (IMG_H + 2)
+    ) conv_stage (
+        .clk   (pix_clk),
+        .reset (~KEY[0]),
+
+        .k11(k11), .k12(k12), .k13(k13),
+        .k21(k21), .k22(k22), .k23(k23),
+        .k31(k31), .k32(k32), .k33(k33),
+
+        .data_in          (pad_pix_out),
+        .startofpacket_in (1'b0),
+        .endofpacket_in   (1'b0),
+        .valid_in         (pad_valid_out),
+        .ready_out        (conv_ready_upstream),
+
+        .data_out         (conv_pix_out),
+        .startofpacket_out(conv_sop),
+        .endofpacket_out  (conv_eop),
+        .valid_out        (conv_valid_out),
+        .ready_in         (1'b1)                // VGA sink always ready
+    );
+
 
     // ============================================================
-    // Pixel → VGA RGB Output (now from ADSR stage)
+    // Pixel → VGA RGB Output (now from convolution stage)
     // ============================================================
-    assign VGA_R = (visible && adsr_valid_out) ? adsr_pix_out : 8'd0;
-    assign VGA_G = (visible && adsr_valid_out) ? adsr_pix_out : 8'd0;
-    assign VGA_B = (visible && adsr_valid_out) ? adsr_pix_out : 8'd0;
+    assign VGA_R = (visible && conv_valid_out) ? conv_pix_out : 8'd0;
+    assign VGA_G = (visible && conv_valid_out) ? conv_pix_out : 8'd0;
+    assign VGA_B = (visible && conv_valid_out) ? conv_pix_out : 8'd0;
 
 endmodule
