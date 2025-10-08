@@ -115,9 +115,37 @@ module top_level #(
 	 
 	// ============================================================
     // SNR Calculation
+<<<<<<< Updated upstream
     // ============================================================
+=======
+//	logic quiet_period;
+//	assign quiet_period = 1'b0;
+	
+	 // SNR Calculation
+	logic [23:0] calibration_counter;
+>>>>>>> Stashed changes
 	logic quiet_period;
-	assign quiet_period = 1'b0;
+
+	// Mic samples at: 3.072 MHz BCLK / 32 bits = 96 kHz
+	// 10 seconds @ 96 kHz = 960,000 samples
+	localparam CALIBRATION_SAMPLES = 24'd960_000;
+
+	always_ff @(posedge audio_clk or posedge reset) begin
+    if (reset) begin
+        calibration_counter <= 0;
+        quiet_period <= 1'b1;  // Start in calibration mode
+    end else if (audio_input_valid) begin
+        if (calibration_counter < CALIBRATION_SAMPLES) begin
+            calibration_counter <= calibration_counter + 1;
+            quiet_period <= 1'b1;  // Calibrating noise floor
+        end else begin
+            quiet_period <= 1'b0;  // Calibration complete
+        end
+    end
+	end
+
+	// Debug: Show calibration status
+	assign LEDG[7] = quiet_period;  // LED ON = calibrating
 
    logic audio_input_ready;
    logic output_valid;
@@ -134,8 +162,15 @@ module top_level #(
 
      .quiet_period   (quiet_period),
 
+<<<<<<< Updated upstream
      .audio_input        (pitch_output_data),       // pitch output
      .audio_input_valid  (pitch_output_valid), 
+=======
+//     .audio_input        (pitch_output_data),       // pitch output
+//     .audio_input_valid  (pitch_output_valid), 
+	  .audio_input        (audio_input_data),       // raw input
+     .audio_input_valid  (audio_input_valid), 
+>>>>>>> Stashed changes
      .audio_input_ready  (audio_input_ready),
 
      .snr_db         (snr_db),

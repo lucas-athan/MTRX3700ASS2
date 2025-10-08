@@ -4,7 +4,11 @@ JedecChain;
 	DefaultMfr(6E);
 
 	P ActionCode(Cfg)
+<<<<<<< Updated upstream
 		Device PartName(EP4CE115F29) Path("C:/Users/lucas/MTRX3700ASS2/Integration test/output_files/") File("FFT_stream.sof") MfrSpec(OpMask(1));
+=======
+		Device PartName(EP4CE115F29) Path("C:/Quartus_Projects/Integration test/output_files/") File("FFT_stream.sof") MfrSpec(OpMask(1));
+>>>>>>> Stashed changes
 
 ChainEnd;
 
