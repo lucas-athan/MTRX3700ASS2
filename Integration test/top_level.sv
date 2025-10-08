@@ -299,10 +299,10 @@ module top_level #(
 
     // ---------- Stage 3: ADSR Filter ----------
     adsr_filter #(
-        .ATTACK        (255),
-        .DECAY         (255),
-        .SUSTAIN       (255),
-        .RELEASE       (255),
+		.ATTACK        (40),
+		.DECAY         (60),
+		.SUSTAIN       (180),
+		.RELEASE       (150),
         .MIN_BPM       (40),
         .MAX_BPM       (200),
         .BITS          (8),
@@ -321,7 +321,7 @@ module top_level #(
         .filter_enable (beat_pulse),            // Trigger on beat pulse
         .beat_trigger  (beat_pulse),            // Beat trigger input
         .BPM_estimate  (bpm_val[7:0]),          // Use actual BPM (8-bit)
-        .pulse_amplitude (8'd255),              // Full amplitude
+		.pulse_amplitude (bpm_val[7:0]),              // Full amplitude
 
         .pix_out       (adsr_pix_out),
         .valid_out     (adsr_valid_out),
