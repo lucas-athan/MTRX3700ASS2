@@ -1,19 +1,20 @@
-module blur #(
-    parameter IMAGE_HEIGHT  = 480,
+module blur_filter #(
+    parameter IMG_HEIGHT    = 480,
     parameter IMG_WIDTH     = 640,
+    parameter DATA_WIDTH    = 8,
     parameter MAX_RADIUS    = 4
 )(
-    input  logic                  clk,
-    input  logic                  reset,
+    input  logic                            clk,
+    input  logic                            reset,
 
-    input  logic [DATA_WIDTH-1:0] pixel_in,
-    input  logic                  pixel_in_valid,
+    input  logic [DATA_WIDTH-1:0]           pixel_in,
+    input  logic                            pixel_in_valid,
 
-    input  logic                  blur_radius
+    input  logic [7:0]                      blur_radius,
 
-    output logic [DATA_WIDTH-1:0] pixel_out,
-    output logic                  pixel_out_valid,
-    output logic                  busy
+    output logic [DATA_WIDTH-1:0]           pixel_out,
+    output logic                            pixel_out_valid,
+    output logic                            busy
 );
 
     localparam integer TOTAL_PIXELS = IMG_WIDTH * IMG_HEIGHT;
@@ -25,6 +26,7 @@ module blur #(
     integer x, y, i, j;
     integer write_x, write_y, write_count;
     integer read_x, read_y, read_count;
+    integer sum, count;
 
     typedef enum logic [1:0] {
         IDLE,
@@ -43,7 +45,10 @@ module blur #(
             read_y          <= 0;
             pixel_out_valid <= 0;
             busy            <= 0;
+            sum             <= 0;
+            count           <= 0;
             state           <= IDLE;
+            next_state      <= IDLE;
         end 
         else begin
             pixel_out_valid <= 0;
@@ -82,7 +87,7 @@ module blur #(
                             write_x <= write_x + 1;
                         end
 
-                        write_count = write_count + 1;
+                        write_count <= write_count + 1;
                     end
 
                     if (write_count >= TOTAL_PIXELS) begin
@@ -90,6 +95,8 @@ module blur #(
                         read_y      <= 0;
                         write_count <= 0;
                         read_count  <= 0;
+                        sum         <= 0;
+                        count       <= 0;
                         next_state  <= BLUR;
                     end 
                     else begin
@@ -100,16 +107,22 @@ module blur #(
                 BLUR: begin
                     busy <= 1;
 
-                    // Apply dynamic box blur
-                    integer sum, count;
-                    sum = 0;
-                    count = 0;
+                    // for (i = -blur_radius; i <= blur_radius; i = i + 1) begin
+                    //     for (j = -blur_radius; j <= blur_radius; j = j + 1) begin
+                    //         if ((read_x + j) >= 0 && (read_x + j) < IMG_WIDTH && (read_y + i) >= 0 && (read_y + i) < IMG_HEIGHT) begin
+                    //             sum   <= sum + frame_mem[read_y + i][read_x + j];
+                    //             count <= count + 1;
+                    //         end
+                    //     end
+                    // end
 
-                    for (int i = -blur_radius; i <= blur_radius; i++) begin
-                        for (int j = -blur_radius; j <= blur_radius; j++) begin
-                            if ((read_x + j) >= 0 && (read_x + j) < IMG_WIDTH && (read_y + i) >= 0 && (read_y + i) < IMG_HEIGHT) begin
-                                sum   = sum + frame_mem[read_y + i][read_x + j];
-                                count = count + 1;
+                    for (i = -MAX_RADIUS; i <= MAX_RADIUS; i++) begin
+                        for (j = -MAX_RADIUS; j <= MAX_RADIUS; j++) begin
+                            if ((i >= -blur_radius) && (i <= blur_radius) && (j >= -blur_radius) && (j <= blur_radius)) begin
+                                if ((read_x + j) >= 0 && (read_x + j) < IMG_WIDTH && (read_y + i) >= 0 && (read_y + i) < IMG_HEIGHT) begin
+                                    sum   <= sum + frame_mem[read_y + i][read_x + j];
+                                    count <= count + 1;
+                                end
                             end
                         end
                     end
@@ -130,7 +143,7 @@ module blur #(
                         read_x <= read_x + 1;
                     end
 
-                    read_count = read_count + 1;
+                    read_count <= read_count + 1;
 
                     if (read_count >= TOTAL_PIXELS) begin
                         read_count <= 0;
@@ -162,7 +175,7 @@ module blur #(
                         read_x <= read_x + 1;
                     end
 
-                    read_count = read_count + 1;
+                    read_count <= read_count + 1;
 
                     if (read_count >= TOTAL_PIXELS) begin
                         read_count <= 0;
@@ -175,6 +188,7 @@ module blur #(
                     end
                 end
             endcase
+            state <= next_state;
         end
     end
 endmodule

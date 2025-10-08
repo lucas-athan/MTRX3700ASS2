@@ -7,19 +7,19 @@
 //
 // This way based on BPM_estimate different filters can be stacked
 
-module top_level_fsm (
-    input  logic         clk,
-    input  logic         reset,
+module top_level_filters (
+    input  logic                            clk,
+    input  logic                            reset,
 
-    input  logic [7:0]   pixel_in,        // grayscale or RGB channel input
-    input  logic         pixel_in_valid,
+    input  logic [7:0]                      pixel_in,        // grayscale or RGB channel input
+    input  logic                            pixel_in_valid,
 
-    input  logic [15:0]  BPM_estimate,    // beats per minute input
-    input  logic         beat_detected    // 1 if beat pulse detected
-    input  logic         filter_enable
+    input  logic [$clog2(MAX_BPM+1)-1:0]    BPM_estimate,    // beats per minute input
+    input  logic                            beat_detected,    // 1 if beat pulse detected
+    input  logic                            filter_enable,
 
-    output logic [7:0]   pixel_out,       // processed output
-    output logic         pixel_out_valid,
+    output logic [7:0]                      pixel_out,       // processed output
+    output logic                            pixel_out_valid
 );
 
     // FSM states
@@ -44,26 +44,26 @@ module top_level_fsm (
 
     // Next-state logic
     always_comb begin
-        next_state = current_state;
+        next_state <= current_state;
         case (current_state)
             IDLE: begin
                 if (pixel_in_valid)
-                    next_state = EDGE;
+                    next_state <= EDGE;
             end
             EDGE: begin
                 if (BPM_estimate < 100) begin
-                    next_state = LOW_BPM;
+                    next_state <= LOW_BPM;
                 end
                 else if (BPM_estimate < 140) begin
-                    next_state = MID_BPM;
+                    next_state <= MID_BPM;
                 end
                 else begin
-                    next_state = HIGH_BPM;
+                    next_state <= HIGH_BPM;
                 end
             end
-            LOW_BPM:  next_state = IDLE;
-            MID_BPM:  next_state = IDLE;
-            HIGH_BPM: next_state = IDLE;
+            LOW_BPM:  next_state <= IDLE;
+            MID_BPM:  next_state <= IDLE;
+            HIGH_BPM: next_state <= IDLE;
         endcase
     end
 
@@ -73,31 +73,27 @@ module top_level_fsm (
     logic       pixel_valid_1,  pixel_valid_2,  pixel_valid_3,  pixel_valid_4;
     logic       busy
 
-
-    // Edge detector is always active
-    edge_detect edge_inst (
+    brightness_filter brightness_inst (
         .clk(clk),
         .reset(reset),
         .pixel_in(pixel_in),
         .pixel_in_valid(pixel_in_valid),
+        .BPM_estimate(BPM_estimate),
         .pixel_out(pixel_wire_1),
-        .pixel_out_valid(pixel_valid_1)
+        .pixel_out_valid(pixel_valid_1)  
     );
-
-    // Blur + zoom (on beat)
-    animate_controller anim_inst (
-        .clk(clk),
-        .reset(reset),
-        .beat_trigger(),
+    
+    threshold_filter thres_inst (
+        .clk(),
+        .reset(),
         .pixel_in(pixel_wire_1),
         .pixel_in_valid(pixel_valid_1),
+        .BPM_estimate(BPM_estimate),
         .pixel_out(pixel_wire_2),
-        .pixel_out_valid(pixel_valid_2),
-        .busy(busy)
+        .pixel_out_valid(pixel_valid_2)
     );
 
-    // Placeholder filter (can be replaced later)
-    placeholder_filter placeholder_inst (
+    edge_detect edge_inst (
         .clk(clk),
         .reset(reset),
         .pixel_in(pixel_wire_2),
@@ -106,14 +102,26 @@ module top_level_fsm (
         .pixel_out_valid(pixel_valid_3)
     );
 
-    // Placeholder filter (can be replaced later)
-    placeholder_filter placeholder_inst (
+    // Blur + zoom (on beat)
+    animate_controller anim_inst (
         .clk(clk),
         .reset(reset),
         .pixel_in(pixel_wire_3),
         .pixel_in_valid(pixel_valid_3),
+        .beat_trigger(),                                // NEED CONNECTION
         .pixel_out(pixel_wire_4),
-        .pixel_out_valid(pixel_valid_4)
+        .pixel_out_valid(pixel_valid_4),
+        .busy(busy)
+    );
+
+    // Placeholder filter (can be replaced later)
+    placeholder_filter placeholder_inst (
+        .clk(clk),
+        .reset(reset),
+        .pixel_in(pixel_wire_4),
+        .pixel_in_valid(pixel_valid_4),
+        .pixel_out(pixel_out),
+        .pixel_out_valid(pixel_out_valid)
     );
 
     // FSM Controlled Data Routing

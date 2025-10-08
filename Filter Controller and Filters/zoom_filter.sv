@@ -1,21 +1,22 @@
-module zoom #(
+module zoom_filter #(
     parameter integer IMG_WIDTH  = 640,
     parameter integer IMG_HEIGHT = 480,
+    parameter integer DATA_WIDTH = 8,
 
     parameter integer MID_X      = 319, // This is the left of the centre two rows
     parameter integer MID_Y      = 239  // This is the upper of the centre two rows
-) (
-    input  logic         clk,
-    input  logic         reset,
+)(
+    input  logic                    clk,
+    input  logic                    reset,
 
-    input  logic [7:0]   pixel_in,
-    input  logic         pixel_in_valid,
+    input  logic [DATA_WIDTH-1:0]   pixel_in,
+    input  logic                    pixel_in_valid,
 
-    input  logic         zoom_value
+    input  logic [7:0]              zoom_value,
 
-    output logic [7:0]   pixel_out,
-    output logic         pixel_out_valid,
-    output logic         busy
+    output logic [DATA_WIDTH-1:0]   pixel_out,
+    output logic                    pixel_out_valid,
+    output logic                    busy
 );
 
     localparam integer TOTAL_PIXELS = IMG_WIDTH * IMG_HEIGHT;
@@ -27,10 +28,14 @@ module zoom #(
     // Read, Write and Fill Counters 
     integer write_x, write_y, write_count;
     integer read_x, read_y, read_count;
-    integer fx, fy;
+    integer sx, sy;
 
-    // Internal States
-    typedef enum logic [1:0] {
+    // Fill variables
+    logic [7:0] tl, tr, bl, br, centre_avg;
+    integer fill_x, fill_y;
+
+    // Main FSM
+    typedef enum logic [2:0] {
         IDLE,
         WRITE,
         SHIFT,
@@ -38,6 +43,15 @@ module zoom #(
         OUTPUT
     } state_t;
     state_t state, next_state;
+
+    // Fill sub-FSM
+    typedef enum logic [1:0] {
+        FILL_VERTICAL,
+        FILL_HORIZONTAL,
+        FILL_CENTER,
+        FILL_DONE
+    } fill_state_t;
+    fill_state_t fill_state;
 
     always_ff @(posedge clk) begin
         if (reset) begin
@@ -57,11 +71,14 @@ module zoom #(
             read_y          <= 0;
             write_count     <= 0;
             read_count      <= 0;
-            fx              <= 0;
-            fy              <= 0;
+            sx              <= 0;
+            sy              <= 0;
             pixel_out       <= 8'd0;
             pixel_out_valid <= 0;
             busy            <= 0;
+            fill_x          <= 0;
+            fill_y          <= 0;
+            fill_state      <= FILL_VERTICAL;
             next_state      <= IDLE;
         end
         else begin
@@ -106,13 +123,15 @@ module zoom #(
                     // When full frame is written, start modifying
                     if (write_count >= TOTAL_PIXELS) begin
                         write_count <= 0;
-                        read_x  <= 0;
-                        read_y  <= 0;
-                        read_count <= 0;
-                        next_state <= SHIFT;
+                        read_x      <= 0;
+                        read_y      <= 0;
+                        read_count  <= 0;
+                        sx          <= 0;
+                        sy          <= 0;
+                        next_state  <= SHIFT;
                     end 
                     else begin
-                        next_state <= WRITE;
+                        next_state  <= WRITE;
                     end
                 end
 
@@ -121,29 +140,28 @@ module zoom #(
                     busy <= 1;
 
                     // Compute source coordinates for this output pixel
-                    integer sx, sy;
                     sx = read_x;
                     sy = read_y;
 
                     // Top-left
                     if (read_x <= MID_X && read_y <= MID_Y) begin
-                        sx = read_x + ZOOM;
-                        sy = read_y + ZOOM;
+                        sx = read_x + zoom_value;
+                        sy = read_y + zoom_value;
                     end
                     // Top-right
                     else if (read_x > MID_X && read_y <= MID_Y) begin
-                        sx = read_x - ZOOM;
-                        sy = read_y + ZOOM;
+                        sx = read_x - zoom_value;
+                        sy = read_y + zoom_value;
                     end
                     // Bottom-left
                     else if (read_x <= MID_X && read_y > MID_Y) begin
-                        sx = read_x + ZOOM;
-                        sy = read_y - ZOOM;
+                        sx = read_x + zoom_value;
+                        sy = read_y - zoom_value;
                     end
                     // Bottom-right
                     else begin
-                        sx = read_x - ZOOM;
-                        sy = read_y - ZOOM;
+                        sx = read_x - zoom_value;
+                        sy = read_y - zoom_value;
                     end
 
                     // Clamp to image boundaries
@@ -153,7 +171,7 @@ module zoom #(
                     if (sy > IMG_HEIGHT - 1) sy = IMG_HEIGHT - 1;
 
                     // Write shifted pixel and mark as valid
-                    frame_out[read_y][read_x] <= frame_mem[sy][sx]
+                    frame_out[read_y][read_x] <= frame_mem[sy][sx];
 
                     // Advance counters
                     if (read_x == IMG_WIDTH - 1) begin
@@ -173,58 +191,78 @@ module zoom #(
 
                     // When full frame done go back to write
                     if (read_count >= TOTAL_PIXELS) begin
-                        read_count <= 0;
-                        next_state <= FILL;
+                        read_count  <= 0;
+                        tl          <= 0;
+                        tr          <= 0;
+                        bl          <= 0;
+                        br          <= 0;
+                        centre_avg  <= 0;
+                        next_state  <= FILL;
                     end 
                     else begin
-                        next_state <= SHIFT;
+                        next_state  <= SHIFT;
                     end
                 end
 
                 FILL: begin
                     busy <= 1;
 
-                    // Fill the vertical gaps
-                    for (int y = 0; y < IMG_HEIGHT; y++) begin
-                        logic [7:0] left, right, avg;
-                        left  = frame_out[y][MID_X - ZOOM];
-                        right = frame_out[y][MID_X + ZOOM];
-                        avg   = (left + right) >> 1;
-
-                        for (int x = MID_X - ZOOM + 1; x <= MID_X + ZOOM; x++) begin
-                            frame_out[y][x] <= avg;
+                    case (fill_state)
+                        // Fill vertical gap
+                        FILL_VERTICAL: begin
+                            frame_out[fill_y][MID_X] <= (frame_out[fill_y][MID_X - zoom_value] + frame_out[fill_y][MID_X + zoom_value]) >> 1;
+                            if (fill_y == IMG_HEIGHT-1) begin
+                                fill_y <= 0;
+                                fill_state <= FILL_HORIZONTAL;
+                            end 
+                            else begin
+                                fill_y <= fill_y + 1;
+                            end
                         end
-                    end
 
-                    // Fill the horizontal gaps
-                    for (int x = 0; x < IMG_WIDTH; x++) begin
-                        logic [7:0] top, bottom, avg;
-                        top    = frame_out[MID_Y - ZOOM][x];
-                        bottom = frame_out[MID_Y + ZOOM][x];
-                        avg    = (top + bottom) >> 1;
-
-                        for (int y = MID_Y - ZOOM + 1; y <= MID_Y + ZOOM; y++) begin
-                            frame_out[y][x] <= avg;
+                        // Fill horizontal gap
+                        FILL_HORIZONTAL: begin
+                            frame_out[MID_Y][fill_x] <= (frame_out[MID_Y - zoom_value][fill_x] + frame_out[MID_Y + zoom_value][fill_x]) >> 1;
+                            if (fill_x == IMG_WIDTH-1) begin
+                                fill_x <= 0;
+                                fill_state <= FILL_CENTER;
+                            end 
+                            else begin 
+                                fill_x <= fill_x + 1;
+                            end
                         end
-                    end
 
-                    // Fill the centre square
-                    logic [7:0] tl, tr, bl, br;
-                    tl = frame_out[MID_Y - ZOOM][MID_X - ZOOM];
-                    tr = frame_out[MID_Y - ZOOM][MID_X + ZOOM];
-                    bl = frame_out[MID_Y + ZOOM][MID_X - ZOOM];
-                    br = frame_out[MID_Y + ZOOM][MID_X + ZOOM];
+                        // Fill center square
+                        FILL_CENTER: begin
+                            tl <= frame_out[MID_Y - zoom_value][MID_X - zoom_value];
+                            tr <= frame_out[MID_Y - zoom_value][MID_X + zoom_value];
+                            bl <= frame_out[MID_Y + zoom_value][MID_X - zoom_value];
+                            br <= frame_out[MID_Y + zoom_value][MID_X + zoom_value];
+                            centre_avg <= (tl + tr + bl + br) >> 2;
 
-                    logic [7:0] centre_avg;
-                    centre_avg = (tl + tr + bl + br) >> 2;
+                            frame_out[MID_Y - zoom_value + fill_y][MID_X - zoom_value + fill_x] <= centre_avg;
 
-                    for (int y = MID_Y - ZOOM + 1; y <= MID_Y + ZOOM; y++) begin
-                        for (int x = MID_X - ZOOM + 1; x <= MID_X + ZOOM; x++) begin
-                            frame_out[y][x] <= centre_avg;
+                            if (fill_x == 2*zoom_value) begin
+                                fill_x <= 0;
+                                if (fill_y == 2*zoom_value) begin
+                                    fill_y <= 0;
+                                    fill_state <= FILL_DONE;
+                                end 
+                                else begin 
+                                    fill_y <= fill_y + 1;
+                                end
+                            end 
+                            else begin 
+                                fill_x <= fill_x + 1;
+                            end
                         end
-                    end
 
-                    next_state <= DONE;
+                        FILL_DONE: begin
+                            next_state <= OUTPUT;
+                        end
+                    endcase
+
+                    next_state <= OUTPUT;
                 end
 
                 OUTPUT: begin

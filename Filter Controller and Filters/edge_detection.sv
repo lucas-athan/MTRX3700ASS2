@@ -1,4 +1,4 @@
-module sobel_edge_stream #(
+module edge_detection #(
     parameter IMG_WIDTH  = 640,
     parameter IMG_HEIGHT = 480,
     parameter PIXEL_BITS = 8
@@ -10,7 +10,7 @@ module sobel_edge_stream #(
     input  logic                  pixel_in_valid,
 
     output logic [PIXEL_BITS-1:0] pixel_out,
-    output logic                  pixel_out_valid,
+    output logic                  pixel_out_valid
 );
 
     // FSM
@@ -28,8 +28,8 @@ module sobel_edge_stream #(
     logic [$clog2(IMG_HEIGHT)-1:0] y;
 
     // Buffers to store two previous rows
-    logic [PIXEL_BITS-1:0] linebuf1 [0:IMG_WIDTH-1];
-    logic [PIXEL_BITS-1:0] linebuf2 [0:IMG_WIDTH-1];
+    logic [(PIXEL_BITS-1):0] linebuf1 [0:(IMG_WIDTH-1)];
+    logic [(PIXEL_BITS-1):0] linebuf2 [0:(IMG_WIDTH-1)];
 
     // 3x3 window registers
     logic [PIXEL_BITS-1:0] w00, w01, w02;
