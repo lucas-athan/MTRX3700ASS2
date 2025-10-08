@@ -162,7 +162,7 @@ module top_level #(
 	assign LEDG[0] = beat_pulse;
 	
 	// ============================================================
-    // BPM Energy Detector
+    // BPM Energy Detector (using corrected pitch_output_data input)
     // ============================================================
 	logic [W-1:0] bpm_val;
 	logic beat_detected;
@@ -177,8 +177,8 @@ module top_level #(
 	) u_bpm_energy_detector (
     .clk(adc_clk),
     .reset(reset),
-    .audio_sample(audio_input_data),
-    .sample_valid(audio_input_valid),
+    .audio_sample(pitch_output_data),    // Using pitch output (corrected)
+    .sample_valid(pitch_output_valid),   // Using pitch valid (corrected)
     .bpm_val(bpm_val),
     .beat_detected(beat_detected)
 	);
@@ -260,7 +260,7 @@ module top_level #(
         .output_ready  (thresh_output_ready),   // upstream ready
 
         .filter_enable (~KEY[1]),
-        .BPM_estimate  (8'd100),          // Use actual BPM from detector
+        .BPM_estimate  (bpm_val[7:0]),          // Use actual BPM from detector (8-bit)
 
         .pix_out       (thresh_pix_out),
         .valid_out     (thresh_valid_out),
@@ -279,7 +279,7 @@ module top_level #(
         .output_ready  (bright_output_ready),   // drives upstream stage
 
         .filter_enable (~KEY[3]),
-        .BPM_estimate  (8'd100),          // Use actual BPM from detector
+        .BPM_estimate  (bpm_val[7:0]),          // Use actual BPM from detector (8-bit)
 
         .pix_out       (bright_pix_out),
         .valid_out     (bright_valid_out),
@@ -287,40 +287,40 @@ module top_level #(
     );
 
     // ---------- Stage 3: ADSR Filter ----------
-	adsr_filter #(
-		 .ATTACK        (255),
-		 .DECAY         (255),
-		 .SUSTAIN       (255),
-		 .RELEASE       (255),
-		 .MIN_BPM       (40),
-		 .MAX_BPM       (200),
-		 .BITS          (8),
-		 .IMAGE_WIDTH   (640),
-		 .IMAGE_HEIGHT  (480)
-	) adsr_stage (
-		 .clk           (pix_clk),
-		 .reset         (~KEY[0]),
+    adsr_filter #(
+        .ATTACK        (255),
+        .DECAY         (255),
+        .SUSTAIN       (255),
+        .RELEASE       (255),
+        .MIN_BPM       (40),
+        .MAX_BPM       (200),
+        .BITS          (8),
+        .IMAGE_WIDTH   (640),
+        .IMAGE_HEIGHT  (480)
+    ) adsr_stage (
+        .clk           (pix_clk),
+        .reset         (~KEY[0]),
 
-		 .pix_in        (bright_pix_out),
-		 .valid_in      (bright_valid_out),
+        .pix_in        (bright_pix_out),
+        .valid_in      (bright_valid_out),
 
-		 .module_ready  (1'b1),                  // VGA sink always ready
-		 .output_ready  (adsr_output_ready),     // drives upstream stage
+        .module_ready  (1'b1),                  // VGA sink always ready
+        .output_ready  (adsr_output_ready),     // drives upstream stage
 
-		 .filter_enable (~KEY[2]),               // KEY[2] enables ADSR filter
-		 .beat_trigger  (beat_pulse),            // ← ADD THIS LINE!
-		 .BPM_estimate  (8'd100),                // Placeholder BPM
-		 .pulse_amplitude (8'd255),              // Placeholder amplitude
+        .filter_enable (beat_pulse),            // Trigger on beat pulse
+        .beat_trigger  (beat_pulse),            // Beat trigger input
+        .BPM_estimate  (bpm_val[7:0]),          // Use actual BPM (8-bit)
+        .pulse_amplitude (8'd255),              // Full amplitude
 
-		 .pix_out       (adsr_pix_out),
-		 .valid_out     (adsr_valid_out),
+        .pix_out       (adsr_pix_out),
+        .valid_out     (adsr_valid_out),
 
-		 // Debug outputs (not connected for now)
-		 .bpm_brightness_gain (),
-		 .env_brightness_gain (),
-		 .bpm_brightness_mult (),
-		 .brightness_gain     ()
-	);
+        // Debug outputs (not connected for now)
+        .bpm_brightness_gain (),
+        .env_brightness_gain (),
+        .bpm_brightness_mult (),
+        .brightness_gain     ()
+    );
 
 
     // ============================================================
