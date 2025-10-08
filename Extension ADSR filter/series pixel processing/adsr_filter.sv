@@ -1,8 +1,8 @@
 module adsr_filter #(
-    parameter int ATTACK         = 2,
-    parameter int DECAY          = 2,
-    parameter int SUSTAIN        = 2,
-    parameter int RELEASE        = 2,
+    parameter int ATTACK         = 40,
+    parameter int DECAY          = 40,
+    parameter int SUSTAIN        = 160,
+    parameter int RELEASE        = 80,
     parameter int MIN_BPM        = 40,
     parameter int MAX_BPM        = 200,
     parameter int BITS           = 8,
@@ -12,7 +12,6 @@ module adsr_filter #(
 )(
     input  logic                              clk,
     input  logic                              reset,
-    input  logic                              freeze, // <--- NEW INPUT
 
     // Input pixel stream (one pixel per cycle)
     input  logic [BITS-1:0]                   pix_in,
@@ -22,13 +21,8 @@ module adsr_filter #(
     output logic [BITS-1:0]                   pix_out,
     output logic                              valid_out,
 
-    // Spatial inputs
-    input  logic [$clog2(IMAGE_WIDTH)-1:0]    pixel_x,
-    input  logic [$clog2(IMAGE_HEIGHT)-1:0]   pixel_y,
-
     // Control
     input  logic                              filter_enable,
-    input  logic                              filter_mode,
     input  logic [$clog2(MAX_BPM+1)-1:0]      BPM_estimate,
     input  logic [BITS-1:0]                   pulse_amplitude,
 
@@ -38,6 +32,27 @@ module adsr_filter #(
     output logic [23:0]                       bpm_brightness_mult,
     output logic [BITS-1:0]                   brightness_gain
 );
+
+// Spatial coordinates
+logic [$clog2(IMAGE_WIDTH)-1:0]    pixel_x;
+logic [$clog2(IMAGE_HEIGHT)-1:0]   pixel_y;
+
+always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
+        pixel_x <= 0;
+        pixel_y <= 0;
+    end else if (valid_out) begin
+        if (pixel_x == IMAGE_WIDTH - 1) begin
+            pixel_x <= 0;
+            if (pixel_y == IMAGE_HEIGHT - 1)
+                pixel_y <= 0;
+            else
+                pixel_y <= pixel_y + 1;
+        end else begin
+            pixel_x <= pixel_x + 1;
+        end
+    end
+end
 
 assign module_ready = output_ready;
 assign valid_out = module_ready && valid_in && filter_enable;
@@ -85,25 +100,21 @@ always_ff @(posedge clk) begin
     end
 end
 
-always_comb begin
-    if (valid_in && filter_enable && brightness_gain_temp != 0) begin
-        pix_bright_addition = (pix_in + brightness_gain_temp) / 2;
-        temp_pix_out = pix_bright_addition;
-    end else begin
-        temp_pix_out = pix_in;
-    end
-end
-
-// Output registers
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
         pix_out         <= 0;
         brightness_gain <= 0;
     end else if (valid_out) begin
-        pix_out         <= temp_pix_out;
         brightness_gain <= brightness_gain_temp;
+
+        if (brightness_gain_temp != 0 && filter_enable && valid_in) begin
+            pix_out <= (pix_in + brightness_gain_temp) >> 1;  // brightened pixel
+        end else begin
+            pix_out <= pix_in;  // unchanged pixel
+        end
     end
 end
+
 
 // --- ADSR FSM --- //
 typedef enum logic [2:0] {S_IDLE, S_ATTACK, S_DECAY, S_SUSTAIN, S_RELEASE} adsr_state_t;
@@ -122,14 +133,12 @@ always_ff @(posedge clk) begin
     if (reset) begin
         tick_cnt <= 0;
         tick_4ms <= 0;
-    end else if (!freeze && tick_cnt == TICK_DIV-1) begin
+    end else if (tick_cnt == TICK_DIV-1) begin
         tick_cnt <= 0;
         tick_4ms <= 1;
-    end else if (!freeze) begin
+    end else begin
         tick_cnt <= tick_cnt + 1;
         tick_4ms <= 0;
-    end else begin
-        tick_4ms <= 0; // No tick if frozen
     end
 end
 

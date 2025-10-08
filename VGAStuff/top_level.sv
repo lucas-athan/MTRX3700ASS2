@@ -137,7 +137,7 @@ module top_level (
 
         .pix_out       (adsr_pix_out),
         .valid_out     (adsr_valid_out),
-        .pulse_amplitude (8'd200), 
+        .pulse_amplitude (8'd255), 
 
         .bpm_brightness_gain (),
         .env_brightness_gain (),
@@ -149,8 +149,8 @@ module top_level (
     // ============================================================
     // Pixel → VGA RGB output
     // ============================================================
-    assign VGA_R = (visible && bright_valid_out) ? adsr_pix_out : 8'd0;
-    assign VGA_G = (visible && bright_valid_out) ? adsr_pix_out : 8'd0;
-    assign VGA_B = (visible && bright_valid_out) ? adsr_pix_out : 8'd0;
+    assign VGA_R = (visible && adsr_valid_out) ? adsr_pix_out : 8'd0;
+    assign VGA_G = (visible && adsr_valid_out) ? adsr_pix_out : 8'd0;
+    assign VGA_B = (visible && adsr_valid_out) ? adsr_pix_out : 8'd0;
 
 endmodule

@@ -32,17 +32,13 @@ module tb_adsr_filter;
   adsr_filter dut (
     .clk(clk),
     .reset(reset),
-    .freeze(freeze),
     .pix_in(pix_in),
     .valid_in(valid_in),
     .output_ready(output_ready),
     .module_ready(module_ready),
     .pix_out(pix_out),
     .valid_out(valid_out),
-    .pixel_x(pixel_x),
-    .pixel_y(pixel_y),
     .filter_enable(filter_enable),
-    .filter_mode(filter_mode),
     .BPM_estimate(BPM_estimate),
     .pulse_amplitude(pulse_amplitude),
     .bpm_brightness_gain(bpm_brightness_gain),
@@ -108,8 +104,6 @@ module tb_adsr_filter;
 
     for (y = 0; y < IMG_H; y++) begin
       for (x = 0; x < IMG_W; x++) begin
-        pixel_x = x;
-        pixel_y = y;
         pix_in  = 0;
         valid_in = 1;
         @(posedge clk);
@@ -146,15 +140,11 @@ module tb_adsr_filter;
     // Initialize
     clk = 0;
     reset = 1;
-    freeze = 0;
     valid_in = 0;
     output_ready = 1;
     filter_enable = 0;
-    filter_mode = 0;
     BPM_estimate = 100;
     pulse_amplitude = 128;
-    pixel_x = 320;
-    pixel_y = 240;
     pix_in  = 0;
 
     #100 reset = 0;
@@ -166,7 +156,6 @@ module tb_adsr_filter;
 
     // Prime it with some activity
     for (int i = 0; i < 3000; i++) begin
-      pixel_x = 250 + (i % 50);
       pix_in  = (i * 7) % 256;
       @(posedge clk);
     end
@@ -178,8 +167,6 @@ module tb_adsr_filter;
       @(posedge clk);
 
       // Constant input stream
-      pixel_x = 320;
-      pixel_y = 240;
       pix_in  = 127;
       valid_in = 1;
 
@@ -194,7 +181,6 @@ module tb_adsr_filter;
         );
 
         if (next_state != dut.state) begin
-          freeze = 1;  // Stop FSM progression
 
           case (dut.state)
             S_ATTACK, S_DECAY, S_SUSTAIN, S_RELEASE: begin
@@ -203,7 +189,6 @@ module tb_adsr_filter;
             end
           endcase
 
-          freeze = 0;
         end
       end
     end
