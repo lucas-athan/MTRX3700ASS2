@@ -246,7 +246,6 @@ module top_level #(
         .valid     (valid)
     );
 
-
     // Filter Pipeline (using proper handshake interface)
     wire [7:0] thresh_pix_out;
     wire       thresh_valid_out;
@@ -255,6 +254,10 @@ module top_level #(
     wire [7:0] bright_pix_out;
     wire       bright_valid_out;
     wire       bright_output_ready;
+
+    wire [7:0] blur_pix_out;
+    wire       blur_valid_out;
+    wire       blur_output_ready;
 
     wire [7:0] adsr_pix_out;
     wire       adsr_valid_out;
@@ -296,7 +299,7 @@ module top_level #(
         .pix_in        (thresh_pix_out),
         .valid_in      (thresh_valid_out),
 
-        .module_ready  (adsr_output_ready),     // downstream ready (ADSR stage)
+        .module_ready  (blur_output_ready),     // downstream ready (ADSR stage)
         .output_ready  (bright_output_ready),   // drives upstream stage
 
         .filter_enable (~KEY[3]),
@@ -307,7 +310,20 @@ module top_level #(
         .brightness    ()
     );
 
-    //  Stage 3: ADSR Filter 
+    // Stage 3: Blur Filter
+    blur_filter_3 blur_inst (
+        .clk(clk),
+        .reset(reset),
+        .module_ready(adsr_output_ready),
+        .output_ready(blur_output_ready),
+        .pixel_in(bright_pix_out),
+        .pixel_in_valid(bright_valid_out),
+        .beat_detected(),
+        .pixel_out(blur_pix_out),
+        .pixel_out_valid(blur_valid_out)
+    );
+
+    //  Stage 4: ADSR Filter 
     adsr_filter #(
         .ATTACK        (255),
         .DECAY         (255),
@@ -322,8 +338,8 @@ module top_level #(
         .clk           (pix_clk),
         .reset         (~KEY[0]),
 
-        .pix_in        (bright_pix_out),
-        .valid_in      (bright_valid_out),
+        .pix_in        (blur_pix_out),
+        .valid_in      (blur_valid_out),
 
         .module_ready  (pad_ready_out),         // downstream ready (padding stage)
         .output_ready  (adsr_output_ready),     // drives upstream stage
