@@ -31,7 +31,9 @@ module top_level #(
    output       VGA_BLANK_N,
    output       VGA_SYNC_N
 );
+	// ============================================================
     // Clock Generation
+    // ============================================================
     wire pix_clk;
 
 	`ifdef SIMULATION
@@ -47,7 +49,9 @@ module top_level #(
     assign VGA_CLK = pix_clk;
 	
 	
+	// ============================================================
     // Audio Processing Parameters and Clocks
+    // ============================================================
 	localparam W        = 16;   //NOTE: To change this, you must also change the Twiddle factor initialisations in r22sdf/Twiddle.v. You can use r22sdf/twiddle_gen.pl.
 	localparam NSamples = 1024; //NOTE: To change this, you must also change the SdfUnit instantiations in r22sdf/FFT.v accordingly.
 
@@ -76,7 +80,9 @@ module top_level #(
 
 	logic reset; assign reset = ~KEY[0];
 
+	// ============================================================
     // Audio Input
+    // ============================================================
 	logic [W-1:0]              audio_input_data;
 	logic                      audio_input_valid;
 	mic_load #(.N(W)) u_mic_load (
@@ -146,15 +152,18 @@ module top_level #(
 	
 	// SNR calculator
 	snr_calculator #(.DATA_WIDTH(W), .SNR_WIDTH(W)) u_snr_calculator (
-     .clk            (audio_clk),
+     .clk            (CLOCK_50),
      .reset          (reset),
 
      .quiet_period   (quiet_period),
 
+     .audio_input        (pitch_output_data),       // pitch output
+     .audio_input_valid  (pitch_output_valid), 
 //     .audio_input        (pitch_output_data),       // pitch output
 //     .audio_input_valid  (pitch_output_valid), 
 	  .audio_input        (audio_input_data),       // raw input
      .audio_input_valid  (audio_input_valid), 
+>>>>>>> Stashed changes
      .audio_input_ready  (audio_input_ready),
 
      .snr_db         (snr_db),
@@ -166,7 +175,7 @@ module top_level #(
 	
 	// Display SNR:
 	display u_display_db (
-		.clk(audio_clk),
+		.clk(adc_clk),
 		.value(snr_db),
 		.display0(HEX0),
 		.display1(HEX1),
@@ -182,7 +191,7 @@ module top_level #(
 	
 	assign LEDG[0] = beat_pulse;
 	
-    // BPM Energy Detector (using corrected pitch_output_data)
+    // BPM Energy Detector (using corrected pitch_output_data input)
 	logic [W-1:0] bpm_val;
 	logic beat_detected;
 
@@ -190,13 +199,14 @@ module top_level #(
     .SAMPLE_WIDTH(W),
     .CLOCK_FREQ(18_432_000),   // same as adc_clk frequency
     .SAMPLE_RATE(30_720),
+    .WINDOW_SIZE(614),         // 20 ms @ 30.72 kHz
+    .ENERGY_WIDTH(32),
     .BPM_WIDTH(W)
 	) u_bpm_energy_detector (
-    .clk(audio_clk),              // Use audio_clk (3.072 MHz)
+    .clk(adc_clk),
     .reset(reset),
-    .signal_rms(signal_rms),      // Energy envelope from SNR calculator
-    .snr_db(snr_db),              // SNR in dB for threshold check
-    .sample_valid(audio_input_valid),  
+    .audio_sample(pitch_output_data),    // Using pitch output (corrected)
+    .sample_valid(pitch_output_valid),   // Using pitch valid (corrected)
     .bpm_val(bpm_val),
     .beat_detected(beat_detected)
 	);
@@ -214,7 +224,9 @@ module top_level #(
 	assign LEDG[1] = beat_detected;
 
 
+    // ============================================================
     // VGA Sync Generator
+    // ============================================================
     wire [9:0] hcount, vcount;
     wire       visible;
 
@@ -232,7 +244,9 @@ module top_level #(
     assign VGA_SYNC_N = 1'b0;
 
 
+    // ============================================================
     // Image Producer (grayscale source)
+    // ============================================================
     wire [7:0] pixel;
     wire       valid;
 
@@ -247,7 +261,9 @@ module top_level #(
     );
 
 
+    // ============================================================
     // Filter Pipeline (using proper handshake interface)
+    // ============================================================
     wire [7:0] thresh_pix_out;
     wire       thresh_valid_out;
     wire       thresh_output_ready;
@@ -269,7 +285,7 @@ module top_level #(
     wire       conv_ready_upstream;
     wire       conv_sop, conv_eop;
 
-    // Stage 1: Threshold 
+    // ---------- Stage 1: Threshold ----------
     threshold_filter thresh_stage (
         .clk           (pix_clk),
         .reset         (~KEY[0]),
@@ -288,7 +304,7 @@ module top_level #(
         .brightness    ()
     );
 
-    //Stage 2: Brightness 
+    // ---------- Stage 2: Brightness ----------
     brightness_filter bright_stage (
         .clk           (pix_clk),
         .reset         (~KEY[0]),
@@ -307,12 +323,12 @@ module top_level #(
         .brightness    ()
     );
 
-    //  Stage 3: ADSR Filter 
+    // ---------- Stage 3: ADSR Filter ----------
     adsr_filter #(
-        .ATTACK        (255),
-        .DECAY         (255),
-        .SUSTAIN       (255),
-        .RELEASE       (255),
+		.ATTACK        (40),
+		.DECAY         (60),
+		.SUSTAIN       (180),
+		.RELEASE       (150),
         .MIN_BPM       (40),
         .MAX_BPM       (200),
         .BITS          (8),
@@ -331,7 +347,7 @@ module top_level #(
         .filter_enable (beat_pulse),            // Trigger on beat pulse
         .beat_trigger  (beat_pulse),            // Beat trigger input
         .BPM_estimate  (bpm_val[7:0]),          // Use actual BPM (8-bit)
-        .pulse_amplitude (8'd255),              // Full amplitude
+		.pulse_amplitude (bpm_val[7:0]),              // Full amplitude
 
         .pix_out       (adsr_pix_out),
         .valid_out     (adsr_valid_out),
@@ -343,7 +359,7 @@ module top_level #(
         .brightness_gain     ()
     );
 
-    // Stage 4: Padding (zero-pad 1 px border)
+    // ---------- Stage 4: Padding (zero-pad 1 px border) ----------
     pad #(
         .WIDTH  (IMG_W),
         .HEIGHT (IMG_H)
@@ -358,7 +374,7 @@ module top_level #(
         .ready_in  (conv_ready_upstream)        // from convolution
     );
 
-    //  Stage 5: 3x3 Convolution 
+    // ---------- Stage 5: 3x3 Convolution ----------
     // Kernel coefficients (identity or edge detection based on a future KEY)
     // For now, using identity kernel (center = 1, rest = 0)
 		wire signed [7:0] k11 = (~KEY[2]) ? -8'sd1 : 8'sd0;
@@ -397,9 +413,13 @@ module top_level #(
     );
 
 
-    // Pixel to VGA RGB Output (now from convolution stage)
+    // ============================================================
+    // Pixel → VGA RGB Output (now from convolution stage)
+    // ============================================================
     assign VGA_R = (visible && conv_valid_out) ? conv_pix_out : 8'd0;
     assign VGA_G = (visible && conv_valid_out) ? conv_pix_out : 8'd0;
     assign VGA_B = (visible && conv_valid_out) ? conv_pix_out : 8'd0;
 
 endmodule
+
+
