@@ -1,47 +1,45 @@
 module convolution_2d_filter #(
-    parameter WIDTH  = 8,
-    parameter HEIGHT = 8
+    parameter WIDTH  = 4,
+    parameter HEIGHT = 4
 )(
     input  logic        clk,
     input  logic        reset,
 
-    // Kernel coefficients (3x3)
+    // Kernel 3x3
     input  logic signed [7:0] k11, k12, k13,
                               k21, k22, k23,
                               k31, k32, k33,
 
     // Avalon-ST Input
-    input  logic [7:0]  data_in,           // grayscale pixel input
+    input  logic [7:0]  data_in,           
     input  logic        startofpacket_in,
     input  logic        endofpacket_in,
     input  logic        valid_in,
     output logic        ready_out,
 
     // Avalon-ST Output
-    output logic [7:0]  data_out,          // grayscale pixel output
+    output logic [7:0]  data_out,          
     output logic        startofpacket_out,
     output logic        endofpacket_out,
     output logic        valid_out,
     input  logic        ready_in
 );
 
-    // ------------------------------
-    // 3 line buffers: y-2, y-1, y
-    // ------------------------------
-    logic [7:0] line0 [0:WIDTH-1];  // y-2
-    logic [7:0] line1 [0:WIDTH-1];  // y-1
-    logic [7:0] line2 [0:WIDTH-1];  // y (current row)
+  
+    // *********************3 line buffers
 
-    // Position counters
+    logic [7:0] line0 [0:WIDTH-1];  
+    logic [7:0] line1 [0:WIDTH-1];  
+    logic [7:0] line2 [0:WIDTH-1];  
+
+    // *********************Position counters
     logic [$clog2(WIDTH)-1:0]  col_count;
     logic [$clog2(HEIGHT)-1:0] row_count;
 
-    // Handshake
     assign ready_out = ready_in;
 
-    // ------------------------------
-    // Write pixels and promote rows once per line
-    // ------------------------------
+    // *********************tracking pixels
+
     integer i;
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
@@ -58,7 +56,7 @@ module convolution_2d_filter #(
             if (col_count == WIDTH-1) begin
                 col_count <= '0;
 
-                // promote y-1 -> y-2, y -> y-1
+               
                 for (i = 0; i < WIDTH; i++) begin
                     line0[i] <= line1[i];
                     line1[i] <= line2[i];
@@ -72,9 +70,8 @@ module convolution_2d_filter #(
         end
     end
 
-    // ------------------------------
-    // Form 3×3 taps directly from buffers
-    // ------------------------------
+    // *********************Piwel window
+
     logic [7:0] t11, t12, t13;
     logic [7:0] t21, t22, t23;
     logic [7:0] t31, t32, t33;
@@ -88,18 +85,15 @@ module convolution_2d_filter #(
         t21 = '0; t22 = '0; t23 = '0;
         t31 = '0; t32 = '0; t33 = '0;
         if ((row_count >= 2) && (col_count >= 2)) begin
-            // top    (y-2)
+            
             t11 = line0[cm2]; t12 = line0[cm1]; t13 = line0[c];
-            // middle (y-1)
             t21 = line1[cm2]; t22 = line1[cm1]; t23 = line1[c];
-            // bottom (y)
-            t31 = line2[cm2]; t32 = line2[cm1]; t33 = data_in; // current pixel
+            t31 = line2[cm2]; t32 = line2[cm1]; t33 = data_in; 
         end
     end
 
-    // ------------------------------
-    // Convolution (combinational)
-    // ------------------------------
+    // *********************Convolution
+
     logic signed [19:0] sum;
     always_comb begin
         sum = (k11 * $signed({1'b0,t11})) + (k12 * $signed({1'b0,t12})) + (k13 * $signed({1'b0,t13})) +
@@ -107,28 +101,17 @@ module convolution_2d_filter #(
               (k31 * $signed({1'b0,t31})) + (k32 * $signed({1'b0,t32})) + (k33 * $signed({1'b0,t33}));
     end
 
-    // Clamp helper
-    function automatic [7:0] clamp8(input signed [19:0] x);
-        if (x < 0)        clamp8 = 8'd0;
-        else if (x > 255) clamp8 = 8'd255;
-        else              clamp8 = x[7:0];
-    endfunction
 
-    // ------------------------------
-    // Valid (raw) and last-center (raw)
-    // Window center = (row-1, col-1) becomes valid at row>=2 & col>=2
-    // ------------------------------
+    // *********************valid ouput
+
     logic window_valid_raw;
     assign window_valid_raw = (row_count >= 2) && (col_count >= 2);
-
-    logic last_center_raw; // last valid center occurs at final pixel
+    logic last_center_raw; 
     assign last_center_raw = (row_count == HEIGHT-1) && (col_count == WIDTH-1);
 
-    // ------------------------------
-    // 1-cycle pipeline: REGISTER BOTH valid and sum
-    // ------------------------------
-    logic               window_valid_q, window_valid_q_d;
-    logic               last_center_q;
+   
+    logic window_valid_q, window_valid_q_d;
+    logic last_center_q;
     logic signed [19:0] sum_q;
 
     always_ff @(posedge clk or posedge reset) begin
@@ -143,15 +126,14 @@ module convolution_2d_filter #(
                 last_center_q    <= last_center_raw;
                 sum_q            <= sum;
             end
-            // edge detector for SOP
             window_valid_q_d <= window_valid_q;
         end
     end
 
-    // ------------------------------
-    // Output regs driven from delayed versions
-    // ------------------------------
-    always_ff @(posedge clk or posedge reset) begin
+
+    // *********************Output
+
+     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
             data_out          <= 8'd0;
             valid_out         <= 1'b0;
@@ -160,15 +142,21 @@ module convolution_2d_filter #(
         end else begin
             valid_out <= window_valid_q;
 
-            if (window_valid_q)
-                data_out <= clamp8(sum_q);
+            if (window_valid_q) begin
+                
+                if (sum_q < 20'sd0)
+                    data_out <= 8'd0;
+                else if (sum_q > 20'sd255)
+                    data_out <= 8'd255;
+                else
+                    data_out <= sum_q[7:0];
+            end
 
-            // SOP: rising edge of delayed valid
+            // SOP on rising edge of valid
             startofpacket_out <= (window_valid_q && !window_valid_q_d);
 
-            // EOP: last delayed center
+            // EOP on last center
             endofpacket_out   <= (window_valid_q && last_center_q);
         end
     end
-
 endmodule
