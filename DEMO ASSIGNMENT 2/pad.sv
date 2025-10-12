@@ -1,6 +1,6 @@
 module pad #(
-  parameter int WIDTH  = 6,
-  parameter int HEIGHT = 6
+  parameter int WIDTH  = 4,
+  parameter int HEIGHT = 4
 )(
   input  logic       clk,
   input  logic       reset,
@@ -16,7 +16,7 @@ module pad #(
   localparam int PH = HEIGHT + 2;
 
   typedef enum logic [2:0] {
-    S_TOP, S_LEFT, S_PIX, S_RIGHT, S_BOTTOM
+    TOP, LEFT, DATAIN, RIGHT, BOTTOM
   } state_t;
   state_t st;
 
@@ -25,11 +25,11 @@ module pad #(
   logic [$clog2(PW)    :0]  x_out;
   logic [$clog2(PH)    :0]  y_out;
 
-  assign ready_out = (st == S_PIX) && ready_in;
+  assign ready_out = (st == DATAIN) && ready_in;
 
   always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
-      st        <= S_TOP;
+      st        <= TOP;
       x_in      <= '0;
       y_in      <= '0;
       x_out     <= '0;
@@ -42,59 +42,59 @@ module pad #(
 
       unique case (st)
 
-        S_TOP: if (ready_in) begin
+        TOP: if (ready_in) begin
           data_out  <= 8'd0;
           valid_out <= 1'b1;
           x_out     <= x_out + 1;
           if (x_out == PW - 1) begin
             x_out <= 0;
             y_out <= 1;
-            st    <= S_LEFT;
+            st    <= LEFT;
           end
         end
 
-        S_LEFT: if (ready_in) begin
+        LEFT: if (ready_in) begin
           data_out  <= 8'd0;
           valid_out <= 1'b1;
           x_out     <= 1;
           x_in      <= 0;
-          st        <= S_PIX;
+          st        <= DATAIN;
         end
 
-        S_PIX: begin
+        DATAIN: begin
           if (valid_in && ready_out) begin
             data_out  <= data_in;
             valid_out <= 1'b1;
             x_out     <= x_out + 1;
             x_in      <= x_in + 1;
             if (x_in == WIDTH - 1) begin
-              st <= S_RIGHT;
+              st <= RIGHT;
             end
           end
         end
 
-        S_RIGHT: if (ready_in) begin
+        RIGHT: if (ready_in) begin
           data_out  <= 8'd0;
           valid_out <= 1'b1;
           x_out     <= 0;
           y_out     <= y_out + 1;
           if (y_in == HEIGHT - 1) begin
             y_in <= 0;
-            st   <= S_BOTTOM;
+            st   <= BOTTOM;
           end else begin
             y_in <= y_in + 1;
-            st   <= S_LEFT;
+            st   <= LEFT;
           end
         end
 
-        S_BOTTOM: if (ready_in) begin
+        BOTTOM: if (ready_in) begin
           data_out  <= 8'd0;
           valid_out <= 1'b1;
           x_out     <= x_out + 1;
           if (x_out == PW - 1) begin
             x_out <= 0;
             y_out <= 0;
-            st    <= S_TOP;
+            st    <= TOP;
           end
         end
 
